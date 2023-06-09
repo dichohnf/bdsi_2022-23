@@ -1,0 +1,9 @@
+"nome","tipo","turni","scontri","torneo"
+"Iniziale","Girone",NULL,2,1
+"Finale a gironi","Girone",NULL,1,1
+"Finale a eliminazione","Eliminazione",4,NULL,1
+"Iniziale","Girone",NULL,2,2
+"Finale a gironi","Girone",NULL,1,2
+"Finale a eliminazione","Eliminazione",4,NULL,2
+"Iniziale","Girone",NULL,2,3
+"Finale a eliminazione","Eliminazione",5,NULL,3

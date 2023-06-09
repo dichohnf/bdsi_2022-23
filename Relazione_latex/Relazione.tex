@@ -1,0 +1,77 @@
+\documentclass[12pt, openany]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english, italian]{babel}
+\usepackage{cancel}
+
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,
+	linkcolor=black,
+	citecolor= black,
+	filecolor=magenta,
+	urlcolor=cyan,
+}
+
+\usepackage{geometry}
+\geometry{
+	a4paper,
+	top=2.5cm,
+	bottom=2.5cm,
+	left=2.7cm,
+	right=2.7cm,
+	heightrounded,
+	bindingoffset=5mm
+}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{caption}
+\captionsetup{font = smaller}
+
+\theoremstyle{definition}
+\newtheorem*{defn}{Definizione}
+\newtheorem{exe}{Esercizio}[section]
+\newtheorem{esem}{Esempio}[section]
+\theoremstyle{plain}
+\theoremstyle{remark}
+\newtheorem*{warn}{ATTENZIONE}
+\newtheorem*{svol}{Svolgimento}
+
+\title{Relazione progetto di \\\textbf{Basi di Dati e\\ Sistemi Informativi}}
+\author{Diciotti Matteo 7072181,\\Manucci Agostino 7084379}
+\date{}
+
+\begin{document}
+	\maketitle
+	\tableofcontents
+	\newpage
+
+	\part{Richiesta}
+		Una società che organizza tornei di calcio a 5 e a 7 \`e presente nel territorio toscano con tornei attivi nella città di Firenze e nelle zone limitrofe.
+
+		Di questi tornei la società desidera mantenere informazioni relativamente alle fasi di gioco, alle squadre partecipanti a ciascuna fase, ai giocatori appartenenti ad ogni squadra e alle partite giocate e da giocare.
+		I tornei (circa 5) sono identificati tramite un codice e sono caratterizzati da un nome, un'edizione, da una tipologia di gioco (calcio a 5 o a 7) e dalla categoria di genere (maschile, femminile o mista).
+		Ogni torneo può essere suddiviso in più fasi di gioco (tipicamente 3), le quali rappresentano una modalità di organizzazione degli scontri tra le squadre (a gironi o ad eliminazione diretta) e che sono caratterizzate dal nome della fase.
+		Ad ogni fase possono corrispondere uno o più insiemi di squadre partecipanti e un gruppo di giornate di gioco, che rappresentano i turni della fase.
+		Gli insiemi di squadre, identificati dalla fase a cui appartengono e dal nome dell'insieme, raggruppano le squadre partecipanti a quella fase.
+		Le giornate di gioco calendarizzano le partite di una fase di gioco e definiscono su queste dei vincoli relativi alla modalità di organizzazione degli scontri (a gironi o ad eliminazione diretta).
+		In particolare sono rilevanti, per ogni partita, le informazioni relative alla squadra di casa, alla squadra ospite, alla data di gioco, al campo, all'arbitro che dirige la gara e al punteggio finale della gara.
+		Per ogni partita la società ha interesse a mantenere le statistiche sui giocatori che hanno effettuato azioni rilevanti in una partita (gol fatti, assist effettuati, espulsioni, ammonizioni) e le squadre sono invece identificate da un codice e si distinguono per il nome, la tipologia di calcio a cui giocano e il genere dei giocatori.
+		La società richiede inoltre che sia mantenuta l'informazione sul campo di casa il quale \`e distinto dagli altri campi gestiti da questa attraverso l'indirizzo. Inoltre i campi possiedono un nome proprio e un recapito telefonico.
+		Le persone tesserate alla società si suddividono in due tipologie: i giocatori e gli arbitri i quali condividono un numero di tessera univoco per ogni tesserato.
+		
+
+
+		Per ogni torneo si vuole rappresentare una lista delle giornate di campionato (circa 9 giornate per la prima fase,5 giornate per la fase ad eliminazione diretta e 3 giornate per la fase ad eliminazione diretta finale) cui appartengono le partite (circa 5 partite in una giornata per ogni girone della fase iniziale a gironi, 3 partite a giornata per la fase finale a gironi, secondo l’algoritmo di accoppiamento delle squadre round robin, e 7 partite in totale nella fase finale divise in quarti di finale (4 partite), semifinali (2 partite) e finale (1 partita)) disputate in quella giornata con relativi risultati e statistiche (marcatori, assist, cartellini).
+		Per ogni insieme di squadre (circa 6 a torneo) si vuole mantenere il nome identificativo dell’insieme all’interno della fase e per ogni giornata si desidera mantenere poter vedere il complessivo dei risultati di quella fase al termine della suddetta giornata. Le tipologie di giornate sono suddivise in base alla fase alla quale fanno riferimento: una giornata è identificata da un indice e se questa appartiene ad una fase a gironi manterrà una lista di partite nelle quali ogni squadra del girone è presente (in caso di numero di squadre dispari nel girone si impone una giornata di riposo per una squadra) utilizzando l’algoritmo d’accoppiamento round robin, mentre una giornata relativa a una fase ad eliminazione diretta, oltre alla lista di squadre e all’indice di turno, manterrà il numero di turni totali, ovvero il numero di giornate totali.
+		Una giornata ad eliminazione diretta dovrà rispettare il vincolo di possedere un numero di partite equivalente    2n-i-1 con n pari al numero di turni totali e l’indice del turno di gioco, quindi ad ogni giornata successiva si dimezzano le partite disputate con l’eccezione della partita n-esima, la partita finale che determinerà la squadra vincitrice di quella fase di gioco (in caso di fase finale ad eliminazione diretta determina la squadra vincitrice del torneo.Per ogni partita (circa 600 a torneo, 3000 in totale) devono essere conservate le seguenti informazioni: la data, il risultato della partita (numero di reti segnate per ogni squadra), l’arbitro della gara ed infine una serie di statistiche per ogni giocatore, ovvero: il numero di gol segnati, il numero di assist effettuati, le ammonizioni e le espulsioni prese.
+		Dell’arbitro (circa 8 a torneo, 40 totali) si vuole mantenere nome, cognome, data di nascita, matricola di tesserino.Le squadre (circa 60 in totale) dovranno essere composte da un insieme di giocatori (circa 10 a squadra, 600 in totale) e dovranno mantenere informazioni relativamente al nome della squadra, la tipologia di calcio a cui gioca, la categoria di genere della squadra e i colori sociali. Per ogni squadra si dovrà poter visualizzare uno storico dei punti in classifica al termine di ogni giornata, i gol fatti e i gol subiti.Ogni squadra sceglie un campo (circa 20 in totale) di casa (che può essere condiviso con altre squadre) e di questo campo si deve conoscerne un indirizzo civico, il nome dello stadio e un recapito telefonico.Per ogni giocatore si vuole memorizzare il cognome, il nome, il genere, la data di nascita e con quale squadra gioca e il numero all’interno della squadra. Di questo si desidera poter recuperare le statistiche complessive nel torneo o nella fase fino a quel momento.Arbitri e giocatori possiederanno un numero di tesseramento univoco per ogni persona.
+
+
+
+
+\end{document}
