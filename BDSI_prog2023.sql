@@ -190,8 +190,8 @@ BEFORE INSERT ON Partita
 FOR EACH ROW 
 BEGIN
 	SELECT (squadra_casa, squadra_ospite) AS coppie_squadre_partita FROM Partita WHERE (Partita.giornata = NEW.giornata);
-    IF (NEW.squadra_casa IN (select squadra_casa from coppia_squadre_partita) OR NEW.sqadra_ospite IN (select squadra_trasferta from coppia_squadre_partita))
-    THEN SIGNAL SQLSTATE '45000'
+    IF (NEW.squadra_casa IN (select squadra_casa from coppia_squadre_partita) OR NEW.sqadra_ospite IN (select squadra_trasferta from coppia_squadre_partita)) THEN 
+    SIGNAL SQLSTATE '45000'
 		SET MESSAGE_TEXT = CONCAT("La squadra ha gia una partita programmata nella giornata ", NEW.giornata);
 	END IF;
 END $$
