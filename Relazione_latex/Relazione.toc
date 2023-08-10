@@ -1,2 +1,24 @@
-\babel@toc {english}{}\relax 
-\contentsline {part}{I\hspace {1em}Richiesta}{2}{part.1}%
+\babel@toc {italian}{}\relax 
+\babel@toc {italian}{}\relax 
+\contentsline {part}{}{1}{section*.1}%
+\contentsline {paragraph}{Titolo}{1}{section*.2}%
+\contentsline {paragraph}{Autori}{1}{section*.3}%
+\contentsline {paragraph}{Obiettivo}{1}{section*.4}%
+\contentsline {paragraph}{Introduzione al progetto}{1}{section*.5}%
+\contentsline {part}{Richiesta}{2}{section*.6}%
+\contentsline {part}{Progettazione Concettuale}{2}{section*.7}%
+\contentsline {section}{Analisi della richiesta}{2}{section*.8}%
+\contentsline {subsection}{Analisi dei termini}{3}{section*.9}%
+\contentsline {section}{Testo tradotto}{5}{section*.10}%
+\contentsline {subsection}{Glossario dei termini}{6}{section*.11}%
+\contentsline {section}{Modello Entità-Relazione}{6}{section*.12}%
+\contentsline {paragraph}{Elementi facoltativi}{6}{section*.13}%
+\contentsline {part}{Descrizione architettura sistema}{8}{section*.14}%
+\contentsline {paragraph}{Implementazione componenti}{8}{section*.15}%
+\contentsline {paragraph}{Gerarchia del programma}{8}{section*.16}%
+\contentsline {paragraph}{IPC nel sistema}{9}{section*.17}%
+\contentsline {paragraph}{Gestione dei log}{9}{section*.19}%
+\contentsline {paragraph}{Funzioni condivise}{10}{section*.20}%
+\contentsline {part}{Esempi di esecuzione}{10}{section*.21}%
+\contentsline {paragraph}{Esempio: ARTIFICIALE standard}{10}{section*.22}%
+\contentsline {paragraph}{Esempio: NORMALE terminale personalizzato}{10}{section*.23}%

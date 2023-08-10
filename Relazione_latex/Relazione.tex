@@ -1,4 +1,4 @@
-\documentclass[12pt, openany]{article}
+\documentclass[11pt, openany]{article}
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
@@ -17,9 +17,9 @@
 \geometry{
 	a4paper,
 	top=2.5cm,
-	bottom=2.5cm,
-	left=2.7cm,
-	right=2.7cm,
+	bottom=2cm,
+	left=1.5cm,
+	right=1.5cm,
 	heightrounded,
 	bindingoffset=5mm
 }
@@ -31,6 +31,18 @@
 \usepackage{booktabs}
 \usepackage{caption}
 \captionsetup{font = smaller}
+\usepackage{enumitem}
+\usepackage{blindtext}
+\usepackage[x11names]{xcolor}
+\usepackage{tcolorbox}
+\usepackage{graphicx}
+\usepackage{pdfpages}
+\usepackage[export]{adjustbox}
+\usepackage{cleveref}
+\usepackage{multirow}
+\usepackage{lipsum}
+
+
 
 \theoremstyle{definition}
 \newtheorem*{defn}{Definizione}
@@ -41,37 +53,242 @@
 \newtheorem*{warn}{ATTENZIONE}
 \newtheorem*{svol}{Svolgimento}
 
-\title{Relazione progetto di \\\textbf{Basi di Dati e\\ Sistemi Informativi}}
-\author{Diciotti Matteo 7072181,\\Manucci Agostino 7084379}
-\date{}
+\setcounter{secnumdepth}{-1}
+\setcounter{tocdepth}{4}
+
+
+\setlist[itemize]{nosep}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+
+\title{Relazione \\\textbf {Progetto A.A. 2022/2023 \\ ADAS made trivial: rappresentazione \underline{ispirata} alle
+		interazioni in un sistema di guida autonoma}}
+\author{Diciotti \hfill Matteo \\\\ 7072181 \and Manucci \hfill Agostino \\\\ 7084379 \and Montes Anacona \\ Àlvaro \\ 7117731}
+\date{\today}
 
 \begin{document}
 	\maketitle
-	\tableofcontents
-	\newpage
+	\hrule
+	\vspace{1cm}
+	
+	\part{}
+		\paragraph{Titolo}
+			Relazione progetto A.A. 2022/2023 di Basi di Dati e Sistemi Informativi
+		\paragraph{Autori}
+			\footnotesize Lista degli autori ordinata per numero di matricola\\
+			\normalsize
+			\begin{tabularx}{\textwidth}[t]{p{4.5cm} p{3.5cm} p{2.5cm} r}
+				\textbf{Matricola} 	& 	\textbf{Cognome} 	& 	\textbf{Nome} 	& \textbf{e-mail} 					\\\toprule
+				7072181				&	Diciotti			&	Matteo			&	matteo.diciotti@stud.unifi.it	\\
+				7084379				&	Mannucci			&	Agostino		&	agostino.mannucci@stud.unifi.it
+			\end{tabularx}
 
+		\paragraph{Obiettivo}
+			Obiettivo del progetto è la realizzazione, per fini accademici, di una base di dati a partire dall'identificazione di una richiesta realmente proponibile, seguita dalla fase di progettazione concettuale cui dovrà succedere la fase di progettazione logica e quindi la realizzazione in MySQL.
+
+		\paragraph{Introduzione al progetto}
+			La realizzazione di una base di dati prevede che sia definita rigorosamente una \underline{richiesta}, pilastro attorno cui si sviluppa il database passando da alcune importanti fasi: una fase di studio, concentrata principalmente nella fase di \textit{progettazione concettuale}, una fase di analisi, suddivisa tra la fase di \textit{progettazione concettuale} e la fase di \textit{progettazione logica}, ed infine una fase di sviluppo, concentrata nella fase di \textit{progettazione logica} e nella realizzazione in linguaggio \textit{MySQL}.\\
+			La creazione della base proposta parte dalla scrittura di una richiesta completa e precisa, affinché fosse plausibile che la fase preliminare, comprendente il confronto col richiedente, fosse già avvenuta proficuamente avendo quindi predefinito le specifiche necessarie ed i dettagli importanti per il cliente. Nella progettazione siamo quindi partiti da una richiesta che non dovesse essere modificata ulteriormente ma che potesse considerarsi definitiva e quindi immediatamente appetibile per le fasi di progettazione suddette, bacino nozionistico del corso.\\
+			La stesura della relazione segue a grandi linee l'ordine con cui sono state affrontate le varie fasi di progettazione e realizzazione: \textit{analisi della richiesta}, \textit{analisi dei termini}, \textit{traduzione del testo} e \textit{creazione del glossario dei termini}, dopodiché è stato \textit{creato il modello ER} (questa prima parte rappresenta la \underline{progettazione concettuale}). Per quanto concerne la fase di \underline{progettazione logica} sono state eseguite le scelte implementative durante le procedure di \textit{eliminazione delle gerarchie}, \textit{eliminazione degli attributi multi-valore} e nella \textit{scelta degli identificatori principali}, giungendo infine al \textit{modello ER ristrutturato}. Da questo è stato quindi definito passo-passo lo schema logico, fino a giungere allo \underline{schema logico completo} a pagina \pageref{tab:schema logico}.\\
+			La fase di realizzazione in MySQL viene affrontata nella presente relazione suddividendo lo script in sezioni tematiche, ovvero in cinque parti che rappresentano i meccanismi focali dell'implementazione:
+			\begin{itemize}
+				\item Creazione e popolamento delle tabelle
+				\item Interrogazioni
+				\item Procedure e funzioni
+				\item Viste
+				\item Trigger
+			\end{itemize}
+			
 	\part{Richiesta}
-		Una società che organizza tornei di calcio a 5 e a 7 \`e presente nel territorio toscano con tornei attivi nella città di Firenze e nelle zone limitrofe.
-
-		Di questi tornei la società desidera mantenere informazioni relativamente alle fasi di gioco, alle squadre partecipanti a ciascuna fase, ai giocatori appartenenti ad ogni squadra e alle partite giocate e da giocare.
-		I tornei (circa 5) sono identificati tramite un codice e sono caratterizzati da un nome, un'edizione, da una tipologia di gioco (calcio a 5 o a 7) e dalla categoria di genere (maschile, femminile o mista).
-		Ogni torneo può essere suddiviso in più fasi di gioco (tipicamente 3), le quali rappresentano una modalità di organizzazione degli scontri tra le squadre (a gironi o ad eliminazione diretta) e che sono caratterizzate dal nome della fase.
-		Ad ogni fase possono corrispondere uno o più insiemi di squadre partecipanti e un gruppo di giornate di gioco, che rappresentano i turni della fase.
-		Gli insiemi di squadre, identificati dalla fase a cui appartengono e dal nome dell'insieme, raggruppano le squadre partecipanti a quella fase.
-		Le giornate di gioco calendarizzano le partite di una fase di gioco e definiscono su queste dei vincoli relativi alla modalità di organizzazione degli scontri (a gironi o ad eliminazione diretta).
-		In particolare sono rilevanti, per ogni partita, le informazioni relative alla squadra di casa, alla squadra ospite, alla data di gioco, al campo, all'arbitro che dirige la gara e al punteggio finale della gara.
-		Per ogni partita la società ha interesse a mantenere le statistiche sui giocatori che hanno effettuato azioni rilevanti in una partita (gol fatti, assist effettuati, espulsioni, ammonizioni) e le squadre sono invece identificate da un codice e si distinguono per il nome, la tipologia di calcio a cui giocano e il genere dei giocatori.
-		La società richiede inoltre che sia mantenuta l'informazione sul campo di casa il quale \`e distinto dagli altri campi gestiti da questa attraverso l'indirizzo. Inoltre i campi possiedono un nome proprio e un recapito telefonico.
-		Le persone tesserate alla società si suddividono in due tipologie: i giocatori e gli arbitri i quali condividono un numero di tessera univoco per ogni tesserato.
+		Una società che organizza tornei di calcio a 5 e a 7 è presente nel territorio toscano con tornei attivi nella città di Firenze e nelle zone limitrofe.\\\\
+		Di questi tornei la società desidera mantenere informazioni relative alle fasi di gioco, alle squadre partecipanti, ai giocatori che compongono le formazioni e alle partite.\\
+		I tornei sono identificati tramite un codice e sono caratterizzati da un nome, da un’edizione, dalla tipologia di gioco (calcio a 5 o a 7) e dalla categoria di genere (maschile, femminile o mista).\\
+		Ogni torneo può essere suddiviso in più fasi di gioco (tipicamente da 1 a 3), le quali si distinguono per la modalità di organizzazione degli scontri tra le squadre (a gironi o ad eliminazione diretta) e che sono caratterizzate dal nome della fase e da un numero rappresentante la quantità di scontri tra due squadre	nella fase. Alle fasi possono corrispondere uno o più insiemi di squadre partecipanti e un gruppo di
+		giornate di gioco, che rappresentano i turni della fase.\\
+		Gli insiemi di squadre, identificati dalla fase a cui appartengono e dal nome dell'insieme, raggruppano	le formazioni partecipanti a quella fase.\\
+		Le giornate di gioco calendarizzano le partite di una fase e possiedono su queste i vincoli imposti alla modalità di organizzazione degli scontri (a gironi o ad eliminazione diretta). Le giornate sono identificate dalla fase a cui appartengono e dal numero della giornata.\\
+		In particolare è rilevante per ogni partita conoscere la squadra di casa e la squadra ospite, la data di gioco, il campo, l’arbitro che dirige la gara e al punteggio finale.\\
+		Per ogni partita la società ha interesse a mantenere le statistiche sui giocatori che hanno effettuato azioni rilevanti in quella partita (gol fatti, assist effettuati, espulsioni, ammonizioni), mentre le squadre si distinguono per il nome, la tipologia di calcio a cui giocano e il genere dei giocatori che la compongono.
+		La società richiede inoltre che sia mantenuta l’informazione sul campo di casa il quale è contraddistinto dagli altri campi attraverso l’indirizzo. I campi possiedono comunque un nome proprio e un recapito.
+		Le persone tesserate alla società si suddividono in due tipologie: i giocatori e gli arbitri i quali condividono un numero di tessera univoco per ogni tesserato.\\
+		Di tutti gli iscritti si conoscono nome e cognome, data di nascita e genere, mentre per i giocatori si conosce, qualora partecipino a qualche torneo, anche la squadra a con la quale gareggiano ed il relativo numero di maglia.
+	
+	\part{Progettazione Concettuale}
+		\section{Analisi della richiesta}
+			Si procede all’analisi della richiesta evidenziando:
+			\begin{itemize}
+				\item in \textit{corsivo} i termini ambigui o imprecisi;
+				\item \underline{sottolineati} i termini con i quali si esprimono concetti diversi;
+				\item in \textbf{grassetto} i termini concettualmente equivalenti, distinguendo successivamente le equivalenze.
+			\end{itemize}
+			
+			\begin{tcolorbox}[width=\textwidth,colback={Cornsilk2}]\label{text:analisi richiesta}
+				Una società che organizza tornei di calcio a 5 e a 7 è presente nel territorio toscano con tornei attivi nella città di Firenze e nelle zone limitrofe.\\\\
+				Di questi tornei la società desidera mantenere informazioni relative alle fasi di gioco, alle \textbf{squadre} \underline{partecipanti}, ai giocatori che compongono le \textbf{formazioni} e alle \textbf{partite}.\\
+				I tornei sono identificati tramite un codice e sono caratterizzati da un \underline{nome}, da un’\textit{edizione}, dalla \underline{tipologia} di gioco (calcio a 5 o a 7) e dalla categoria di \underline{genere} (maschile, femminile o mista).\\
+				Ogni torneo può essere suddiviso in più fasi di gioco (tipicamente da 1 a 3), le quali si distinguono per la modalità di organizzazione degli \textbf{scontri} tra le squadre (a gironi o ad eliminazione diretta) e che sono caratterizzate dal \underline{nome} della fase e da un \underline{numero} rappresentante la quantità di scontri tra due squadre	nella fase. Alle fasi possono corrispondere uno o più insiemi di squadre partecipanti e un gruppo di
+				giornate di gioco, che rappresentano i turni della fase.\\
+				Gli insiemi di squadre, identificati dalla fase a cui appartengono e dal \underline{nome} dell'insieme, raggruppano	le formazioni partecipanti a quella fase.\\
+				Le giornate di gioco calendarizzano le partite di una fase e possiedono su queste i vincoli imposti alla modalità di organizzazione degli scontri (a gironi o ad eliminazione diretta). Le giornate sono identificate dalla fase a cui appartengono e dal \underline{numero} della giornata.\\
+				In particolare è rilevante per ogni partita conoscere la squadra di casa e la squadra ospite, la \underline{data} di gioco, il \underline{campo}, l’arbitro che dirige la \textbf{gara} e al \textit{punteggio} finale.\\
+				Per ogni partita la società ha interesse a mantenere le statistiche sui giocatori che hanno effettuato azioni rilevanti in quella partita (gol fatti, assist effettuati, espulsioni, ammonizioni), mentre le squadre si distinguono per il \underline{nome}, la \underline{tipologia} di calcio a cui giocano e il \underline{genere} dei giocatori che la compongono.
+				La società richiede inoltre che sia mantenuta l’informazione sul \underline{campo} di casa il quale è contraddistinto dagli altri \underline{campi} attraverso l’\textit{indirizzo}. I campi possiedono comunque un \underline{nome} proprio e un recapito.
+				Le \textbf{persone tesserate} alla società si suddividono in due \underline{tipologie}: i giocatori e gli arbitri i quali condividono un \underline{numero} di tessera univoco per ogni \textbf{tesserato}.\\
+				Di tutti gli \textbf{iscritti} si conoscono \underline{nome} e cognome, \underline{data} di nascita e \underline{genere}, mentre per i giocatori si conosce, qualora \textbf{\underline{partecipino}} a qualche torneo, anche la squadra a con la quale \textbf{gareggiano} ed il relativo \underline{numero} di maglia.
+			\end{tcolorbox}
+			
+			\subsection{Analisi dei termini}
+				\textit{Termini ambigui o imprecisi}
+				\begin{itemize}
+					\item\textit{edizione}: si riferisce al numero in cui è stato ripetuto lo stesso torneo e si indica con un numero intero positivo diverso da zero, per semplicità diremo "numero di edizione";
+					\item\textit{punteggio}: si riferisce ai gol segnati dalla squadra di casa e quelli segnati dalla squadra ospite;
+					\item\textit{indirizzo}: si riferisce all’indicazione del comune, della via in cui è situato e del numero civico;
+					\item\textit{recapito}: si riferisce al numero di telefono dei gestori del campo sportivo.
+				\end{itemize}
+				\vspace{7pt}
+				\underline{Termini concettualmente plurimi}
+				\begin{itemize}
+					\item\underline{partecipante}: il temine è utilizzato per indicare una squadra che partecipa ad un torneo ("squadra partecipante" o "formazione partecipante") sia per indicare un giocatore membro di una squadra che partecipa ad un torneo ("giocatore partecipante");
+					\item\underline{nome}: il termine è utilizzato per indicare il nome del torneo, il nomi di una fase del torneo, il nome	di un insieme di squadre, il nome di una squadra, il nome di un campo e i nome di un tesserato.
+					\item\underline{tipologia}: il termine sta ad indicare la tipologia di calcio giocato che un torneo prevede ("tipologia del torneo"), la tipologia di calcio che una squadra gioca ("tipologia di calcio della squadra") ed infine la tipologia di tesseramento di una persona alla società, se si iscrive come giocatore o come arbitro ("tipologia di tesseramento");
+					\item\underline{genere}: il temine è utilizzato per indicare il genere dei tesserati ("genere dei tesserati"), il genere dei giocatori di una squadra ("genere dei giocatori della squadra") ed la composizione di genere dei giocatori ammessi a partecipare ad un torneo ("categoria di genere");
+					\item\underline{numero}: il termine è utilizzato per indicare il numero rappresentante la quantità di scontri tra due squadre in una fase ("numero di scontri"), il numero che identifica una giornata dio gioco ("Numero della giornata") il numero di tessera di un iscritto ("numero di tessera") e il numero di maglia di un giocatore all’interno di una squadra ("numero di maglia");
+					\item\underline{data}: il termine è utilizzato per indicare il giorno e l’orario in cui si disputa una partita ("data di gioco") e per indicare la data di nascita di un tesserato ("data di nascita");
+					\item\underline{campo}: il termine è utilizzato per indicare un campo gestito dalla società organizzatrice dei tornei ("campo"), il campo di casa selezionato da una squadra come preferenza ("campo di casa") ed il campo in cui si svolge una partita ("campo d gioco").
+				\end{itemize}
+				\vspace{7pt}
+				\textbf{Termini concettualmente equivalenti}\\
+				\begin{tabularx}{\textwidth}{lp{10cm}X}
+					\textbf{Termine} & \textbf{Descrizione} & \textbf{Sinonimi}\\
+					\toprule[1.2pt]
+					\multirow{2}{*}{squadra} & Insieme di giocatori che unitamente possono partecipare ad un torneo & \multirow{2}{*}{formazione}\\\midrule
+					\multirow{2}{*}{partita} & Evento nel quale due squadre si affrontano e il cui punteggio determina un unico vincitore oppure un pareggio & \multirow{2}{*}{scontro, gara}\\\midrule
+					tesserato & Persona iscritta alla società che gestisce	i tornei & persona tesserata, iscritto
+				\end{tabularx}
+				
+		\newpage\section{Testo tradotto}
+			Si evidenziano i \underline{\textbf{concetti principali}} e i \textbf{termini ad essi correlati}:
+			\begin{tcolorbox}[width=\textwidth, colback={Cornsilk2}]
+				Una società che organizza \textbf{\underline{tornei}} di calcio a 5 e a 7 è presente nel territorio toscano con tornei attivi nella città di Firenze e nelle zone limitrofe.\\\\
+				Di questi tornei la società desidera mantenere informazioni relative alle fasi di gioco, alle \textbf{\underline{squadre}} partecipanti, ai \textbf{\underline{giocatori}} che compongono le squadre e alle \textbf{\underline{partite}}.\\
+				I tornei sono identificati tramite un \textbf{codice} e sono caratterizzati da un \textbf{nome del torneo}, dal \textbf{numero dell’edizione}, dalla \textbf{tipologia di gioco} (calcio a 5 o a 7) e dalla \textbf{categoria di genere del torneo} (maschile, femminile o mista).\\
+				Ogni torneo può essere suddiviso in più fasi di gioco (tipicamente da 1 a 3), le quali si distinguono per la \textbf{modalità} di organizzazione delle partite tra le squadre (a \textbf{gironi} o ad \textbf{eliminazione diretta}) e che sono caratterizzate dal \textbf{nome della fase} e dal \textbf{numero di scontri}, rappresentante la quantità di partite tra due squadre nella fase. Alle fasi possono corrispondere uno o più \underline{\textbf{insiemi di squadre}} partecipanti e un gruppo di \underline{\textbf{giornate}} di gioco, che rappresentano i turni della fase.\\
+				Gli insiemi di squadre, identificati dalla fase a cui appartengono e dal \textbf{nome dell’insieme}, raggruppano le squadre partecipanti a quella fase.\\
+				Le giornate di gioco calendarizzano le partite di una fase e impongono su queste i vincoli dettati dalla modalità di organizzazione degli scontri (a gironi o ad eliminazione diretta). Le giornate sono identificate dalla fase a cui appartengono e dal \textbf{numero della giornata}.\\
+				In particolare è rilevante per ogni partita conoscere la \textbf{squadra di casa} e la \textbf{squadra ospite}, la \textbf{data di gioco}, il \textbf{campo di gioco}, l’\textbf{arbitro} che dirige la partita e i \textbf{gol seganti dalla squadra di casa} e i \textbf{gol segnati dalla squadra ospite}.\\
+				Per ogni partita la società ha interesse a mantenere le \textbf{\underline{statistiche}} sui giocatori che hanno effettuato azioni rilevanti in quella partita (\textbf{gol} fatti, \textbf{assist} effettuati, \textbf{espulsioni}, \textbf{ammonizioni}), mentre le squadre si distinguono per il \textbf{nome della squadra}, la \textbf{tipologia di calcio} a cui gioca la squadra, il \textbf{genere dei giocatori} che la compongono e i \textbf{colori} della divisa della squadra.\\
+				La società richiede inoltre che, per ogni squadra, sia mantenuta l’informazione sul \textbf{campo di casa} il quale è contraddistinto dagli altri campi attraverso l’indicazione del \textbf{comune}, della \textbf{via} e del \textbf{numero civico} in cui è situato. I \textbf{\underline{campi}} possiedono comunque un \textbf{nome} del campo e un	\textbf{numero di telefono} dei gestori del campo.\\
+				I \textbf{\underline{tesserati}} alla società si suddividono in due tipologie di tesseramento: i \textbf{giocatori} e gli \textbf{arbitri} i quali condividono un \textbf{numero di tessera} univoco per ogni tesserato.\\
+				Di tutti i tesserati si conoscono il \textbf{nome} e \textbf{cognome} del tesserato, \textbf{data di nascita} e \textbf{genere} del tesserato, mentre per i giocatori si conosce, qualora siano membri di una squadra che partecipa a qualche torneo, anche la \textbf{squadra} con la quale partecipa ed il relativo \textbf{numero di maglia}.
+			\end{tcolorbox}
 		
-
-
-		Per ogni torneo si vuole rappresentare una lista delle giornate di campionato (circa 9 giornate per la prima fase,5 giornate per la fase ad eliminazione diretta e 3 giornate per la fase ad eliminazione diretta finale) cui appartengono le partite (circa 5 partite in una giornata per ogni girone della fase iniziale a gironi, 3 partite a giornata per la fase finale a gironi, secondo l’algoritmo di accoppiamento delle squadre round robin, e 7 partite in totale nella fase finale divise in quarti di finale (4 partite), semifinali (2 partite) e finale (1 partita)) disputate in quella giornata con relativi risultati e statistiche (marcatori, assist, cartellini).
-		Per ogni insieme di squadre (circa 6 a torneo) si vuole mantenere il nome identificativo dell’insieme all’interno della fase e per ogni giornata si desidera mantenere poter vedere il complessivo dei risultati di quella fase al termine della suddetta giornata. Le tipologie di giornate sono suddivise in base alla fase alla quale fanno riferimento: una giornata è identificata da un indice e se questa appartiene ad una fase a gironi manterrà una lista di partite nelle quali ogni squadra del girone è presente (in caso di numero di squadre dispari nel girone si impone una giornata di riposo per una squadra) utilizzando l’algoritmo d’accoppiamento round robin, mentre una giornata relativa a una fase ad eliminazione diretta, oltre alla lista di squadre e all’indice di turno, manterrà il numero di turni totali, ovvero il numero di giornate totali.
-		Una giornata ad eliminazione diretta dovrà rispettare il vincolo di possedere un numero di partite equivalente    2n-i-1 con n pari al numero di turni totali e l’indice del turno di gioco, quindi ad ogni giornata successiva si dimezzano le partite disputate con l’eccezione della partita n-esima, la partita finale che determinerà la squadra vincitrice di quella fase di gioco (in caso di fase finale ad eliminazione diretta determina la squadra vincitrice del torneo.Per ogni partita (circa 600 a torneo, 3000 in totale) devono essere conservate le seguenti informazioni: la data, il risultato della partita (numero di reti segnate per ogni squadra), l’arbitro della gara ed infine una serie di statistiche per ogni giocatore, ovvero: il numero di gol segnati, il numero di assist effettuati, le ammonizioni e le espulsioni prese.
-		Dell’arbitro (circa 8 a torneo, 40 totali) si vuole mantenere nome, cognome, data di nascita, matricola di tesserino.Le squadre (circa 60 in totale) dovranno essere composte da un insieme di giocatori (circa 10 a squadra, 600 in totale) e dovranno mantenere informazioni relativamente al nome della squadra, la tipologia di calcio a cui gioca, la categoria di genere della squadra e i colori sociali. Per ogni squadra si dovrà poter visualizzare uno storico dei punti in classifica al termine di ogni giornata, i gol fatti e i gol subiti.Ogni squadra sceglie un campo (circa 20 in totale) di casa (che può essere condiviso con altre squadre) e di questo campo si deve conoscerne un indirizzo civico, il nome dello stadio e un recapito telefonico.Per ogni giocatore si vuole memorizzare il cognome, il nome, il genere, la data di nascita e con quale squadra gioca e il numero all’interno della squadra. Di questo si desidera poter recuperare le statistiche complessive nel torneo o nella fase fino a quel momento.Arbitri e giocatori possiederanno un numero di tesseramento univoco per ogni persona.
-
-
-
-
+			\newpage\subsection{Glossario dei termini}
+				\begin{tabularx}{\textwidth}{p{1.8cm}p{6cm}Xp{3.5cm}}
+					\textbf{Nome} & \textbf{Descrizione} & \textbf{Termini relativi} & \textbf{Collegamenti}\\\toprule[1.2pt]
+					Torneo & Manifestazione sportiva organizzata dalla società gestrice & Codice del torneo, nome del torneo, numero dell’edizione, tipologia di gioco, categoria di genere del torneo & Fase\\\midrule
+					Fase & Parte del torneo che determina la modalità di organizzazione delle partite & Nome della fase, numero di scontri & Insieme di squadre, Giornate\\\midrule
+					Insieme di squadre & Gruppo di squadre che si affrontano nelle giornate della fase & Nome dell'insieme & Fase, Squadra\\\midrule
+					Giornata & Insieme di partite fra squadre della stessa fase & Numero della giornata & Fase, Partita\\\midrule
+					Partita & Evento calcistico nel quale si affrontano due squadre & Data di gioco (data e	orario), Punteggio (gol casa, gol ospite) & Giornata, Squadra casa, Squadra ospite, Arbitro, Campo\\\midrule
+					Squadra & Insieme di giocatori che unitamente possono partecipare ad un torneo & Nome, tipologia di calcio della squadra, genere dei giocatori della squadra, campo di	casa, colori & Insieme di squadre, Partita, Giocatore, Campo\\\midrule
+					Tesserato & Persona iscritta alla società che gestisce i tornei & Nome del tesserato, cognome, data di nascita, genere, numero di tessera & Squadra, Partita, Giocatore, Arbitro\\\midrule
+					Campo & Luogo in cui si disputa una partita & Nome del campo, indirizzo (comune, via, numero civico), recapito telefonico & Partita, Squadra
+				\end{tabularx}
+				
+		\section{Modello Entità-Relazione}
+			Si mostra alla pagina seguente il modello entità-relazione derivante dalla richiesta e dall’analisi svolta.	Per la costruzione dello schema concettuale è stata adottata una strategia principalmente a inside-out,	ma complessivamente mista, partendo dalla raffinazione dello schema Torneo (strategia bottom-up), procedendo successivamente a macchia d’olio verso Fase, Insieme di squadre e Squadre, a cui sono stasti associati successivamente gli attributi (top-down parziale), dopodiché è stato definito il concetto di giornata e quello di partita, il concetto di campo ed infine è stato creato, raffinato e collegato il concetto di tesserato come generalizzazione dei concetti Giocatore e Arbitro.
+			\includegraphics{imagefile}
+				
+	
+	\paragraph{Elementi facoltativi}
+	La tabella a pagina~\pageref{tab:facoltativi} mostra gli elementi facoltativi implementati seguiti da una breve descrizione dell'implementazione.
+	\begin{tcolorbox}[width=\textwidth,move upwards= -16pt , colback={Cornsilk2}]
+		\begin{tabularx}{\textwidth}{lXcX}
+			\textbf{\#}	&	\textbf{Elemento facoltativo}	&	\textbf{Realizzato (SI/NO)}	&	\textbf{Descrizione dell'implementazione con indicazione del metodo/i principale/i} \\\toprule\vspace{.1cm}
+			1	&	Ad ogni accelerazione, c’è una probabilità di $10^{-5}$ che l’acceleratore fallisca. In tal caso, il componente \textit{throttle control} invia un \underline{segnale} alla \textit{central-ECU} per evidenziare tale evento, e la central-ECU avvia la procedura di \textit{ARRESTO} & SI	&
+			Metodo: \textit{throttle-control} $\rightarrow$ \textit{throttle\_failed()}. Il metodo, tramite la funzione \texttt{rand()} della \texttt{libc} ottiene un numero aleatorio il cui modulo per 10000 simula una probabilità del 1 su $10^5$ se eguagliato a 0\footnote{La probabilità non risulta esattamente $10^{-5}$ dato l'intervallo di valori producibili da \texttt{rand()}, ma la differenza risulta trascurabile ai fini del progetto.} \\\vspace{0.1cm}
+			2	&	Componente \textit{forward facing radar}	&	SI	&
+			Sorgente \textit{bytes-sensors.c}. Il processo esegue un ciclo infinito di letture, invii e scritture su file di log.\\\vspace{0.2cm}
+			3	&	Quando si attiva l’interazione con park assist, la \textit{central-ECU} sospende (o rimuove) tutti i sensori e attuatori, tranne \textit{park assist} e \textit{surround view cameras}	&	SI	&
+			Nella \textit{central-ECU} vengono segnalati con un \texttt{SIGKILL} tutti i processi attuatori e sensori esistenti prima di procedere all'inizializzazione del parcheggio.\\\vspace{0.1cm}
+			4	&	Il componente \textit{park assist} non è generato all'avvio del sistema, ma creato dalla \textit{central-ECU} al bisogno	&	SI	&
+			La \textit{central-ECU} esegue la \texttt{fork} per la creazione di \textit{park-assist} in \textit{park\_assist\_init()}, il quale inizializza il processo prima di entrare nel ciclo di parcheggio.\\\vspace{0.1cm}
+			5	&	Se il componente \textit{surround view cameras} è implementato, \textit{park assist} trasmette a \textit{central-ECU} anche i byte ricevuti da \textit{surround view cameras}	&	SI	&
+			Nel ciclo principale di \textit{park-assit} si esegue una \texttt{read} da \textit{cameras.pipe} (non bloccante) e una \texttt{write} dei dati ricevuti sulla socket \textit{assist.sock} \\\vspace{0.1cm}
+			6	&	Componente \textit{surround view cameras}	&	SI	&
+			Sorgente \textit{bytes-sensors.c}. Vedi facoltativo 2 - \textit{forward facing radar}	\\\vspace{0.1cm}
+			7	&	Il comando di \textit{PARCHEGGIO} potrebbe arrivare mentre i vari attuatori stanno eseguendo ulteriori comandi (accelerare o sterzare). I vari attuatori interrompono le loro azioni, per avviare le procedure di parcheggio	&	SI	&
+			Nella \textit{central-ECU}, nel ciclo principale, dopo la lettura da hmi-input, \textit{kill(-processes\_groups.actuators\_gro-up, SIGKILL)}. Si esegue la segnalazione di chiusura immediata dei processi  \textit{steer} e \textit{throttle} (brake rimane per il ciclo di frenata).\\
+			8	&	Se la \textit{central-ECU }riceve il segnale di fallimento accelerazione da \textit{throttle control}, imposta la velocità a 0 e invia all'output della \textit{HMI} un messaggio di totale terminazione dell'esecuzione	&	SI	&
+			Nella \textit{central-ECU}, una volta ricevuto il segnale di \textit{fallimento accelerazione}, gestito tramite \textit{ECU\_signal\_handler} si esegue la procedura di arresto, stampa la stringa di terminazione e si conclude l'esecuzione dei processi.
+			
+		\end{tabularx}
+		\label{tab:facoltativi}
+	\end{tcolorbox}
+	\part{Descrizione architettura sistema}
+	Nella seguente sezione viene presentata l'architettura del progetto e le scelte implementative prese, cercando di descrivere i motivi che hanno portato alle singole decisioni prese.
+	
+	\paragraph{Implementazione componenti}
+	\footnotesize Segue una tabella nella quale si mostrano quali sorgenti implementano le componenti
+	\normalsize
+	
+	\begin{tcolorbox}[width=\textwidth,colback={Cornsilk2}]\label{tab:sorgenti}
+		\begin{tabularx}{\textwidth}{p{8cm}  l}
+			\textbf{Componente}			&	\textbf{Sorgente}	\\\toprule
+			Human-Machine Interface 	& 	hmi-input.c			\\
+			&	hmi-output.c		\\\midrule
+			steer-by-wire				&	steer-by-wire.c		\\\midrule
+			throttle control			&	throttle-control.c	\\\midrule
+			brake-by-wire				&	brake-by-wire.c		\\\midrule
+			front windshield camera		&	windshield-camera.c	\\\midrule
+			forward facing radar		&	bytes-sensors.c		\\\midrule
+			park assist					&	park-assist.c		\\\midrule
+			surround view cameras		&	bytes-sensors.c		\\\midrule
+			central-ECU					&	central-ECU.c
+		\end{tabularx}
+	\end{tcolorbox}
+	
+	\paragraph{Gerarchia del programma}
+	La gerarchia del progetto è stata ottenuta dalla richiesta cercando di massimizzare la semplicità.
+	Questa rappresenta lo scheletro del progetto e definisce quindi il flusso di lavoro dello stesso. In particolare si può notare in figura~\ref{fig:gerarchia} che esistono due soli processi che inizializzano dei figli, ovvero l'unita di controllo centrale \textit{central-ECU}, che rappresenta anche il programma genitore di tutto il sistema, e \textit{park-assist}, che inizializza il suo unico figlio \textit{surround-view cameras}.\\
+	È stato scelto di rendere l'unità di controllo la componente genitore di tutto il sistema dato che è in collegamento con la quasi totalità dei processi agenti, cosicché il sistema fosse inizializzato e gestito nel flusso di questa. La soluzione sembrava essere coerente con la strutturazione dei sistemi ADAS reali.\\
+	Nella \textit{central-ECU} vengono quindi inizializzati le pipe, vengono eseguite varie \texttt{fork} per la creazione e la connessione in lettura/scrittura ai pipe degli attuatori, delle due componenti relative alla \textit{Human-Machine Interface} ed infine i due sensori \textit{front windshield camera} e \textit{forward facing radar}. L'unico componente figlio della \textit{central-ECU} non immediatamente inizializzato rimane \textit{park-assist}\footnote{La decisione di non inizializzare il componente immediatamente deriva dalla richiesta, ovvero dall'elemento facoltativo numero 4. Vedi la tabella di pagina~\pageref{tab:facoltativi}.} il quale verrà inizializzato (comprensivo della socket che utilizzerà per comunicare con la \textit{central-ECU}) e messo in esecuzione dalla stessa unità di controllo quando questa riceverà un comando di \textit{PARCHEGGIO} dall'interfaccia oppure dal sensore \textit{windshield camera}.\\
+	Con le stesse motivazioni è stato deciso di rendere la \textit{central-ECU} "server" nella connessione socket tra questa e \textit{park assist}. In questo modo sarà sempre la central-ECU a gestire il flusso di lavoro e a dettare i tempi del sistema.
+	All'avvio della procedura di parcheggio, successivamente al ciclo di rallentamento, la \textit{central-ECU} avvierà la componente \textit{park-assist}, la quale si connetterà alla socket e inizializzerà \textit{surround-view cameras}. Terminata l'inizializzazione, l'unita di controllo invierà un messaggio (``INIZIO'') tramite la socket a \textit{park assist}, la quale leggerà per 30 iterazioni (intervallate da \texttt{sleep(1)}) i dati dalla sorgente binaria e i dati ricevuti dalla componente figlia tramite la pipe di comunicazione e li invierà alla \textit{central-ECU} che li scandirà alla ricerca di particolari pattern\footnote{Per conoscere i pattern binari (espressi in codifica esadecimale) prendere visione del paragrafo 2, sotto-paragrafo \textit{Componente central-ECU} della richiesta \textit{Allegato\_01.pdf}}. Se non venissero evidenziate congruenze allora la central-ECU informerà tramite un messaggio (``CONTINUA'') \textit{park assist} perché possa proseguire nell'iterazione successiva. Se così non fosse allora verrà posto sulla socket un messaggio di riavvio (``RIAVVIO''), affinché il parcheggio inizi nuovamente il ciclo delle 30 iterazioni. Concluse le 30 iterazioni senza ''insuccessi'' allora l'esecuzione del parcheggio risulterà conclusa e il processo terminerà.
+	
+	\paragraph{IPC nel sistema}
+	In figura~\ref{fig:comunicazione}, a pagina~\pageref{fig:comunicazione}, si mostra una schematizzazione molto stilizzata della rete comunicativa del sistema.
+	La struttura di comunicazione maggiormente sfruttata all'interno del sistema è la \textbf{pipe} la quale implementa 8 canali di comunicazione su 9 (segnali esclusi). Il motivo della scelta delle \textbf{pipe} a discapito di altri metodi risiede nel fatto che le comunicazioni sono sostanzialmente unidirezionali (sensori $\rightarrow$ unità di controllo, unità di controllo $\rightarrow$ attuatori, con le due evidenti eccezioni di \textit{park assist} e di \textit{surround-view cameras}). La scelta ha permesso di implementare un sistema relativamente semplice, con un'unica \textbf{socket}, struttura più complessa da implementare.\\
+	Il protocollo di gestione dei canali risulta unico per tutte le tipologie di canali e per tutti i processi: il processo padre, l'unico processo che comunica con i propri processi figli, produce ed inizializza correttamente il file \texttt{.pipe} o \texttt{.sock} (rappresentante socket \texttt{UNIX}) nella directory \textit{tmp} (dopo aver avuto l'accortezza di eliminare creazioni pendenti da vecchie esecuzioni tramite un \texttt{unlink}), il processo figlio si connette con  l'adeguata procedura, differente tra pipe e socket, al canale di comunicazione nella fase inizializzazione del processo. Se la connessione non dovesse riuscire (se la \texttt{openat} o la \texttt{connect} dovessero generare un errore) il figlio terminerebbe con codice di errore \texttt{EXIT\_FAILURE} e stamperebbe il codice tramite \texttt{perror(3)} nel file di log adibito a \textit{stderr}: \texttt{./log/errors.log}\\
+	Per l'implementazione del parcheggio il canale di comunicazione è stato strutturato sotto forma di una socket per semplificare la comunicazione tra i due processi e perché la gestione del contenuto della socket fosse meno soggetto a problemi di concorrenza. Ogni volta che la \textit{central-ECU} riceve dalla socket uno dei pattern non ammissibili, che simulano una situazione di parcheggio non accettabile, il protocollo prevede che invii un messaggio di riavvio a \textit{park assist}. Il protocollo prevede che ad ogni ciclo \textit{park assist} legga dalla pipe non bloccante \textit{cameras.pipe} i byte da inviare alla \textit{central-ECU} e che li inoltri. Se, eseguito l'invio, riceve dalla \textit{central-ECU} un messaggio che indica la necessità di riavvio, allora non fa altro che resettare il contatore di iterazioni e riprendere il ciclo.
+	\begin{figure}[t]
+		\includegraphics[scale=0.9, center]{./include/SO_Progetto_Diagrammi-Comunicazione.pdf}
+		\caption{In figura sono rappresentati i percorsi comunicativi inseriti nel sistema: sono presenti 8 pipe, 1 socket e 12 di segnalazioni, 5 rappresentate e 7 assenti. Sono infatti stati esclusi i percorsi delle segnalazioni \texttt{SIGKILL} per alleggerire il grafico.}
+		\label{fig:comunicazione}
+	\end{figure}
+	\normalsize
+	\paragraph{Gestione dei log}
+	I log rappresentano, nel sistema implementato, la simulazione delle componenti reali, ovvero mostrano le azioni eseguite dalle varie componenti.\\
+	Per ogni componente, esclusa la \textit{Human-Machine Interface}, è presente un file di log specifico nel quale vengono scritte le azioni eseguite.
+	Gli inserimenti nel file di log seguono le richieste specificate nella richiesta del progetto \textit{Allegato\_1.pdf}.
+	Perché le shell di input e di output risultassero pulite da ogni eventuale segnalazione diretta allo \textit{stderr} è stato adottato il file \texttt{./log/errors.log} come soluzione per inserirvi tutti i messaggi dirette a questo.
+	
+	\paragraph{Funzioni condivise}
+	Durante lo sviluppo del sistema sono risultate utili la definizione di alcune funzioni di utilità generale per il sistema e di alcune macros, anch'esse sfruttate in più contesti. Tutto ciò è stato inserito all'interno del sorgente \texttt{service-functions.c}, il cui header risulta quindi \texttt{service-functions.h}.
+	
+	\part{Esempi di esecuzione}
+	Nella seguente sezione sono mostrati 2 esempi di funzionamento: il primo mostra un funzionamento in modalità ARTIFICIALE con comando dato da input ``INIZIO'' e alcuni ``ARRESTO'', nel secondo si esegue in modalità NORMALE direttamente il parcheggio con un terminale selezionato. All'interno dello \texttt{.zip} è stata  inserita una cartella \textit{Esempi di funzionamento} nella quale sono stati inseriti i file di log risultanti dalle esecuzioni presentate.
+	\paragraph{Esempio: ARTIFICIALE standard}
+	Il presente esempio è teso a mostrare un'esecuzione tipica del programma.
+	Il programma è stato eseguito tramite il comando \texttt{./ADAS-simulator ARTIFICIALE}. Non appena il programma si è inizializzato è stato inserito il comando ``INIZIO''. Il programma si è avviato correttamente iniziando ad inserire sul terminale di output i comandi impartiti da parte della \textit{central-ECU} alle rispettive componenti. Sono stati inseriti, durante l'esecuzione, quattro comandi di ``ARRESTO''. Il programma ha eseguito correttamente la procedura di arresto, bloccando istantaneamente l'auto e ripartendo la corsa istantaneamente. La procedura di parcheggio, ultimo comando da parte della \textit{windshield camera}, è terminata dopo 30 iterazioni (30 secondi).
+	
+	\paragraph{Esempio: NORMALE terminale personalizzato}
+	Il presente esempio è teso a mostrare un'esecuzione del programma relativamente atipica e potenzialmente problematica, un'esecuzione nella quale l'utente inserisce inizialmente una stringa non accettabile, poi il comando ``ARRESTO'', sebbene il mezzo non sia ancora in movimento ed infine il comando ``PARCHEGGIO''.
+	Il programma è stato eseguito tramite il comando \texttt{./ADAS-simulator NORMALE --term xfce4-terminal}. Non appena il programma si è inizializzato è stato inserito come comando ``42'', che è risultato non accettabile, poi ``ARRESTO'', anch'esso non accettabile, ed infine ``parcheggio'' che ha dato il via alla procedura di parcheggio, terminata con successo dopo un ciclo di iterazioni. È stata infatti implementata una funzione per il confronto tra stringhe case-insensitive per i comandi dalla hmi-input.
+	
+	\newpage
+	\hrule
+	\tableofcontents
+	
 \end{document}
