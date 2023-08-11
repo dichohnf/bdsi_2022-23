@@ -241,7 +241,7 @@
 					\hspace{2mm} \hspace{3mm}
 					\begin{minipage}[b]{8.5cm}
 						\centering
-						\includegraphics[width=4cm, height=3cm]{./include/bdsi-prog-2023-TRAD.L3.pdf}
+						\includegraphics[width=3.5cm, height=3cm]{./include/bdsi-prog-2023-TRAD.L3.pdf}
 					\end{minipage}
 				\end{figure}
 				
@@ -258,9 +258,179 @@
 					\end{minipage}
 				\end{figure}
 				
-
+			\subsection{Scelta degli identificatori principali}
+				Data la dipendenza gerarchica dello schema, ovvero il fatto che quasi ogni entità dello schema risulta identificata da un’entità a sua volta dipendente da un’altra entità, risulta necessario introdurre dei codici per agevolare l’identificazione delle istanze. In particolare sono stati introdotti dei codici identificativi in \textit{Fase}, \textit{Giornata}, \textit{Insieme squadre} e \textit{Partita}, oltre che per \textit{Squadra} e \textit{Campo} per le cui relazioni le chiavi primarie risultavano composte da vari attributi. Gli identificatori non modificati sono: l'identificatore di \textit{Torneo} (anch’esso un codice) e quelli di \textit{Giocatori} e \textit{Arbitri} (\textit{Tesserati} nel modello ER) le cui relazioni mantengono come chiave il numero di tesseramento \textit{Tessera}.
 				
-	
+		\section{Modello ER ristrutturato}
+			\begin{figure}[h!]
+				\includegraphics[scale=0.8, center]{./include/bdsi-prog-2023-Logic.pdf}
+				\label{fig:ER ristrutturato}
+			\end{figure}
+		
+		\section{Traduzione verso il modello relazionale}
+			In seguito si mostrano i vari passaggi di traduzione dal modello ER ristrutturato allo schema logico definitivo per la base di dati.
+			
+			\vspace{.3cm}	
+			\begin{minipage}[t]{8.5cm}
+				\fbox{\includegraphics[width=4.5cm, height=4.5cm]{./include/bdsi-prog-2023-Schema.1.pdf}}
+			\end{minipage}
+			\begin{minipage}[b]{9cm}
+				\begin{flushright}
+					Torneo(\underline{codice}, nome, edizione, categoria, tipologia)\\
+					Fase(\underline{codice}, torneo, nome, modalita, scontri)\\
+					Fase.torneo → Torneo.codice
+					\vspace{2cm}
+				\end{flushright}
+			\end{minipage}
+			
+			\vspace{.3cm}
+			\centering	
+			\fbox{\includegraphics[width=9cm, height=3.5cm]{./include/bdsi-prog-2023-Schema.2.pdf}}\\\vspace{.2cm}
+			Fase(\underline{codice}, torneo, nome, modalita, scontri)\\
+			Insieme\_squadre(\underline{codice}, fase, nome)\\
+			Giornata(\underline{codice}, fase, numero)\\
+			Insieme\_squadre.fase → Fase.codice\\
+			Giornata.fase → Fase.codice
+
+			\vspace{.3cm}
+			\begin{minipage}[t]{6cm}
+				\fbox{\includegraphics[width=4.5cm, height=3cm]{./include/bdsi-prog-2023-Schema.3.pdf}}
+			\end{minipage}
+			\begin{minipage}[b]{11cm}
+				\begin{flushright}
+					Insieme\_squadre(\underline{codice}, fase, nome)\\
+					Squadra(\underline{codice}, nome, tipologia, composizione, colori, campo)\\
+					Raggruppamento(\underline{insieme\_squadre}, \underline{squadra})\\
+					Raggruppamento.insieme\_squadre → Insieme\_squadre.codice\\
+					Raggruppamento.squadra → Squadra.codice
+					\vspace{.3cm}
+				\end{flushright}
+			\end{minipage}
+			
+			\vspace{.3cm}
+			\begin{minipage}[t]{6cm}
+				\fbox{\includegraphics[width=4.5cm, height=4.5cm]{./include/bdsi-prog-2023-Schema.4.pdf}}
+			\end{minipage}
+			\begin{minipage}[b]{11cm}
+				\begin{flushright}
+					Giornata(\underline{codice}, fase, numero)\\
+					Partita(\underline{codice}, giornata, giorno, ora, squadra\_casa, squadra\_ospite, arbitro, campo, gol\_casa, gol\_ospite)\\
+					Partita.giornata → Giornata.codice
+					\vspace{1cm}
+				\end{flushright}
+			\end{minipage}
+			
+			\vspace{.3cm}
+			\fbox{\includegraphics[ height=3cm]{./include/bdsi-prog-2023-Schema.5.pdf}}\\\vspace{.2cm}
+			Squadra(\underline{codice}, nome, tipologia, composizione, colori, campo)\\
+			\mbox{Partita(\underline{codice}, giornata, giorno, ora, squadra\_casa, squadra\_ospite, arbitro, campo, gol\_casa, gol\_ospite)}\\
+			Partita.squadra\_casa → Squadra.codice\\
+			Partita.squadra\_ospite → Squadra.codice
+
+			\vspace{.3cm}
+			\begin{minipage}[b]{6cm}
+				\fbox{\includegraphics[width=6.5cm, height=4cm]{./include/bdsi-prog-2023-Schema.6.pdf}}
+			\end{minipage}
+			\begin{minipage}[b]{10cm}
+				\begin{flushright}
+					Partita(\underline{codice}, giornata, giorno, ora, squadra\_casa, squadra\_ospite, arbitro, campo, gol\_casa, gol\_ospite)\\
+					Giocatore(\underline{tessera}, nome, cognome, data, genere,	squadra, numero)\\
+					Statistiche\_partita(\underline{partita}, \underline{giocatore}, gol, assist, ammonizioni, espulsione\_giornate)\\
+					Statistiche\_partita.partita → Partita.codice\\
+					Statistiche\_partita.giocatore → Giocatore.tessera
+				\end{flushright}
+			\end{minipage}
+			
+			\vspace{.3cm}
+			\begin{minipage}[b]{6cm}
+				\fbox{\includegraphics[width=4cm, height=3.5cm]{./include/bdsi-prog-2023-Schema.7.pdf}}
+			\end{minipage}
+			\begin{minipage}[b]{10cm}
+				\begin{flushright}
+					Partita(\underline{codice}, giornata, giorno, ora, squadra\_casa, squadra\_ospite, arbitro, campo, gol\_casa, gol\_ospite)\\
+					Arbitro(\underline{tessera}, nome, cognome, data, genere)\\
+					Partita.arbitro → Arbitro.tessera
+					\vspace{1cm}
+				\end{flushright}
+			\end{minipage}
+			
+			\vspace{.3cm}
+			\begin{minipage}[b]{5cm}
+				\fbox{\includegraphics[width=5cm, height=3.5cm]{./include/bdsi-prog-2023-Schema.8.pdf}}
+			\end{minipage}
+			\hspace{1mm}
+			\begin{minipage}[b]{11cm}
+				\begin{flushright}
+					Squadra(\underline{codice}, nome, tipologia, composizione, colori, campo)\\
+					Giocatore(\underline{tessera}, nome, cognome, data,\\ genere, squadra, numero)\\
+					Giocatore.squadra → Squadra.codice
+					\vspace{1cm}
+				\end{flushright}
+			\end{minipage}
+			
+			\vspace{.3cm}
+			\fbox{\includegraphics[ height=3.5cm]{./include/bdsi-prog-2023-Schema.9.pdf}}\\\vspace{.2cm}
+			Squadra(codice, nome, tipologia, composizione, colori, campo)\\
+			\mbox{Partita(codice, giornata, giorno, ora, squadra\_casa, squadra\_ospite, arbitro, campo, gol\_casa, gol\_ospite)}\\
+			Campo(codice, nome, telefono, comune, via, civico)\\
+			Squadra.campo → Campo.codice\\
+			Partita.campo → Campo.codice
+		
+		\raggedright
+		\section{Schema logico}\label{tab:schema logico}
+			\begin{tcolorbox}[width=\textwidth, colback={Cornsilk2}]
+				\subsection{Tabelle}
+					\textbf{Torneo}(\underline{codice}, nome, edizione, categoria, tipologia)\\
+					\textbf{Fase}(\underline{codice}, torneo, nome, modalita, scontri)\\
+					\textbf{Insieme\_squadre}(\underline{codice}, fase, nome)\\
+					\textbf{Giornata}(\underline{codice}, fase, numero)\\
+					\textbf{Squadra}(\underline{codice}, nome, tipologia, composizione, colori, campo)\\
+					\textbf{Raggruppamento}(\underline{insieme\_squadre}, \underline{squadra})\\
+					\textbf{Partita}(\underline{codice}, giornata, giorno, ora, squadra\_casa, squadra\_ospite, arbitro, campo, gol\_casa, gol\_ospite)\\
+					\textbf{Giocatore}(\underline{tessera}, nome, cognome, data, genere, squadra, numero)\\
+					\textbf{Statistiche\_partita}(\underline{partita}, \underline{giocatore}, gol, assist, ammonizioni, espulsione\_giornate)\\
+					\textbf{Arbitro}(\underline{tessera}, nome, cognome, data, genere)\\
+					\textbf{Campo}(\underline{codice}, nome, telefono, comune, via, civico)
+			\end{tcolorbox}
+			
+			\begin{tcolorbox}[width=\textwidth, colback={Cornsilk2}]
+				\subsection{Vincoli di integrità referenziale}
+				Fase.torneo → Torneo.codice\\
+				Insieme\_squadre.fase → Fase.codice\\
+				Giornata.fase → Fase.codice\\
+				Raggruppamento.insieme\_squadre → Insieme\_squadre.codice\\
+				Raggruppamento.squadra → Squadra.codice\\
+				Partita.giornata → Giornata.codice\\
+				Partita.squadra\_casa → Squadra.codice\\
+				Partita.squadra\_ospite → Squadra.codice\\
+				Statistiche\_partita.partita → Partita.codice\\
+				Statistiche\_partita.giocatore → Giocatore.codice\\
+				Partita.arbitro → Arbitro.codice\\
+				Squadra.campo → Campo.codice\\
+				Partita.campo → Campo.codice
+			\end{tcolorbox}
+			
+			\begin{tcolorbox}[width=\textwidth, colback={Cornsilk2}]
+				\subsection{Altri vincoli}
+			\end{tcolorbox}
+			
+	\part{Implementazione MySQL}
+		\subsection{Creazione e popolamento delle tabelle}
+			Data l’assenza di vincoli referenziali circolari, la creazione delle tabelle non ha avuto criticità in termini di implementazione.
+			Il popolamento delle tabelle è stato eseguito tramite comandi INSERT e LOAD: per mostrare la procedura e per non appesantire eccessivamente lo script .sql abbiamo eseguito un unico inserimento tramite il comando INSERT, tutti gli altri popolamenti sono stati eseguiti tramite il comando LOAD, uno da un file .in e gli altri dal formato standard CSV\footnote{Al fine di procedere al caricamento dei file per il popolamento devono essere inseriti nello script i percorsi assoluti dei file .csv e .in, ammenoché non venga lanciato il comando di apertura di mysql-workbench dalla cartella contenente lo script stesso.
+			Lo script sarà impostato perché si possano caricare i file tramite percorso relativo da quella directory. Questa procedura è stata testata per SO Linux. Per ulteriori informazioni consultare il manuale mysql alla sezione Input File Location: \href{https://dev.mysql.com/doc/refman/8.0/en/load-data.html}{mysql Manual LOAD DATA}}. Inoltre è stata creata una procedura per l’inserimento di AIUTOOOOOO per mostrare questo genere di procedure, ma non sono state inserite di ulteriori per non inquinare eccessivamente lo script con procedure troppo simili.
+			
+		\subsection{Interrogazioni}
+			Abbiamo implementato AIUTOOOO interrogazioni per mostrare il funzionamento del database utilizzando vari costrutti del linguaggio. Queste sono commentate all’interno dello script.
+		
+		\subsection{Procedure e funzioni}
+			Sono state implementate AIUTOOO procedure e AIUTOOOOO funzioni e per ognuna sono state inserite delle CALL (commentate) per tastarne il funzionamento.
+		
+		\subsection{Viste}
+			In questo genere di database le viste sono molto frequenti e utili. In questo caso sono state implemen	tate AIUTOOO viste:
+		
+		\subsection{Trigger}
+			Dato l’elevato numero di vincoli referenziali e soprattutto di vincoli di unicità, il numero di trigger inseriti è relativamente elevato, AIUTOOOO.
 
 	\newpage
 	\hrule

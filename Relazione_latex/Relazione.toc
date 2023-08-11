@@ -16,3 +16,16 @@
 \contentsline {section}{Traduzione dello schema}{8}{section*.15}%
 \contentsline {subsection}{Eliminazione delle gerarchie}{8}{section*.16}%
 \contentsline {subsection}{Eliminazione degli attributi multi-valore}{8}{section*.18}%
+\contentsline {subsection}{Scelta degli identificatori principali}{8}{section*.22}%
+\contentsline {section}{Modello ER ristrutturato}{9}{section*.23}%
+\contentsline {section}{Traduzione verso il modello relazionale}{10}{section*.25}%
+\contentsline {section}{Schema logico}{12}{section*.26}%
+\contentsline {subsection}{Tabelle}{12}{section*.27}%
+\contentsline {subsection}{Vincoli di integrità referenziale}{12}{section*.28}%
+\contentsline {subsection}{Altri vincoli}{12}{section*.29}%
+\contentsline {part}{Implementazione MySQL}{12}{section*.30}%
+\contentsline {subsection}{Creazione e popolamento delle tabelle}{12}{section*.31}%
+\contentsline {subsection}{Interrogazioni}{13}{section*.32}%
+\contentsline {subsection}{Procedure e funzioni}{13}{section*.33}%
+\contentsline {subsection}{Viste}{13}{section*.34}%
+\contentsline {subsection}{Trigger}{13}{section*.35}%
