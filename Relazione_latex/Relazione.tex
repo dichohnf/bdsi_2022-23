@@ -198,95 +198,70 @@
 		\section{Modello Entità-Relazione}
 			Si mostra alla pagina seguente il modello entità-relazione derivante dalla richiesta e dall’analisi svolta.	Per la costruzione dello schema concettuale è stata adottata una strategia principalmente a inside-out,	ma complessivamente mista, partendo dalla raffinazione dello schema Torneo (strategia bottom-up), procedendo successivamente a macchia d’olio verso Fase, Insieme di squadre e Squadre, a cui sono stati associati successivamente gli attributi (top-down parziale), dopodiché è stato definito il concetto di giornata e quello di partita, il concetto di campo ed infine è stato creato, raffinato e collegato il concetto di tesserato come generalizzazione dei concetti Giocatore e Arbitro.
 			
+			\begin{figure}[t!]
+				\includegraphics[scale=0.95, center]{./include/bdsi-prog-2023-ER.pdf}
+				\label{fig:ER}
+			\end{figure}
+	\newpage		
+	\part{Progettazione Logica}
+		\section{Traduzione dello schema}
+			\subsection{Eliminazione delle gerarchie}
+				\underline{Concettuale} \hspace{7.5cm} \underline{Logico}\
+				\begin{figure}[h]
+					\begin{minipage}[b]{8.5cm}
+						\centering
+						\includegraphics[width=8cm]{./include/bdsi-prog-2023-TRAD.C1.pdf}
+					\end{minipage}
+					\hspace{2mm} \hspace{3mm}
+					\begin{minipage}[b]{8.5cm}
+						\centering
+						\includegraphics[width=9cm]{./include/bdsi-prog-2023-TRAD.L1.pdf}
+					\end{minipage}
+				\end{figure}
+			\subsection{Eliminazione degli attributi multi-valore}
+				\underline{Attributi composti partita}
+				\begin{figure}[h]
+					\begin{minipage}[b]{8.5cm}
+						\centering
+						\includegraphics[width=5cm, height=2cm]{./include/bdsi-prog-2023-TRAD.C2.pdf}
+					\end{minipage}
+					\hspace{2mm} \hspace{3mm}
+					\begin{minipage}[b]{8.5cm}
+						\centering
+						\includegraphics[width=5cm, height=3cm]{./include/bdsi-prog-2023-TRAD.L2.pdf}
+					\end{minipage}
+				\end{figure}
+				
+				\underline{Attributi composti campo}
+				\begin{figure}[h]
+					\begin{minipage}[b]{8.5cm}
+						\centering
+						\includegraphics[width=4cm, height=2.5cm]{./include/bdsi-prog-2023-TRAD.C3.pdf}
+					\end{minipage}
+					\hspace{2mm} \hspace{3mm}
+					\begin{minipage}[b]{8.5cm}
+						\centering
+						\includegraphics[width=4cm, height=3cm]{./include/bdsi-prog-2023-TRAD.L3.pdf}
+					\end{minipage}
+				\end{figure}
+				
+				\underline{Attributi composti statistiche partita}
+				\begin{figure}[h!]
+					\begin{minipage}[b]{8.5cm}
+						\centering
+						\includegraphics[width=4cm, height=1cm]{./include/bdsi-prog-2023-TRAD.C4.pdf}
+					\end{minipage}
+					\hspace{2mm} \hspace{3mm}
+					\begin{minipage}[b]{8.5cm}
+						\centering
+						\includegraphics[width=6cm, height=2.5cm]{./include/bdsi-prog-2023-TRAD.L4.pdf}
+					\end{minipage}
+				\end{figure}
+				
 
 				
 	
-	\paragraph{Elementi facoltativi}
-	La tabella a pagina~\pageref{tab:facoltativi} mostra gli elementi facoltativi implementati seguiti da una breve descrizione dell'implementazione.
-	\begin{tcolorbox}[width=\textwidth,move upwards= -16pt , colback={Cornsilk2}]
-		\begin{tabularx}{\textwidth}{lXcX}
-			\textbf{\#}	&	\textbf{Elemento facoltativo}	&	\textbf{Realizzato (SI/NO)}	&	\textbf{Descrizione dell'implementazione con indicazione del metodo/i principale/i} \\\toprule\vspace{.1cm}
-			1	&	Ad ogni accelerazione, c’è una probabilità di $10^{-5}$ che l’acceleratore fallisca. In tal caso, il componente \textit{throttle control} invia un \underline{segnale} alla \textit{central-ECU} per evidenziare tale evento, e la central-ECU avvia la procedura di \textit{ARRESTO} & SI	&
-			Metodo: \textit{throttle-control} $\rightarrow$ \textit{throttle\_failed()}. Il metodo, tramite la funzione \texttt{rand()} della \texttt{libc} ottiene un numero aleatorio il cui modulo per 10000 simula una probabilità del 1 su $10^5$ se eguagliato a 0\footnote{La probabilità non risulta esattamente $10^{-5}$ dato l'intervallo di valori producibili da \texttt{rand()}, ma la differenza risulta trascurabile ai fini del progetto.} \\\vspace{0.1cm}
-			2	&	Componente \textit{forward facing radar}	&	SI	&
-			Sorgente \textit{bytes-sensors.c}. Il processo esegue un ciclo infinito di letture, invii e scritture su file di log.\\\vspace{0.2cm}
-			3	&	Quando si attiva l’interazione con park assist, la \textit{central-ECU} sospende (o rimuove) tutti i sensori e attuatori, tranne \textit{park assist} e \textit{surround view cameras}	&	SI	&
-			Nella \textit{central-ECU} vengono segnalati con un \texttt{SIGKILL} tutti i processi attuatori e sensori esistenti prima di procedere all'inizializzazione del parcheggio.\\\vspace{0.1cm}
-			4	&	Il componente \textit{park assist} non è generato all'avvio del sistema, ma creato dalla \textit{central-ECU} al bisogno	&	SI	&
-			La \textit{central-ECU} esegue la \texttt{fork} per la creazione di \textit{park-assist} in \textit{park\_assist\_init()}, il quale inizializza il processo prima di entrare nel ciclo di parcheggio.\\\vspace{0.1cm}
-			5	&	Se il componente \textit{surround view cameras} è implementato, \textit{park assist} trasmette a \textit{central-ECU} anche i byte ricevuti da \textit{surround view cameras}	&	SI	&
-			Nel ciclo principale di \textit{park-assit} si esegue una \texttt{read} da \textit{cameras.pipe} (non bloccante) e una \texttt{write} dei dati ricevuti sulla socket \textit{assist.sock} \\\vspace{0.1cm}
-			6	&	Componente \textit{surround view cameras}	&	SI	&
-			Sorgente \textit{bytes-sensors.c}. Vedi facoltativo 2 - \textit{forward facing radar}	\\\vspace{0.1cm}
-			7	&	Il comando di \textit{PARCHEGGIO} potrebbe arrivare mentre i vari attuatori stanno eseguendo ulteriori comandi (accelerare o sterzare). I vari attuatori interrompono le loro azioni, per avviare le procedure di parcheggio	&	SI	&
-			Nella \textit{central-ECU}, nel ciclo principale, dopo la lettura da hmi-input, \textit{kill(-processes\_groups.actuators\_gro-up, SIGKILL)}. Si esegue la segnalazione di chiusura immediata dei processi  \textit{steer} e \textit{throttle} (brake rimane per il ciclo di frenata).\\
-			8	&	Se la \textit{central-ECU }riceve il segnale di fallimento accelerazione da \textit{throttle control}, imposta la velocità a 0 e invia all'output della \textit{HMI} un messaggio di totale terminazione dell'esecuzione	&	SI	&
-			Nella \textit{central-ECU}, una volta ricevuto il segnale di \textit{fallimento accelerazione}, gestito tramite \textit{ECU\_signal\_handler} si esegue la procedura di arresto, stampa la stringa di terminazione e si conclude l'esecuzione dei processi.
-			
-		\end{tabularx}
-		\label{tab:facoltativi}
-	\end{tcolorbox}
-	\part{Descrizione architettura sistema}
-	Nella seguente sezione viene presentata l'architettura del progetto e le scelte implementative prese, cercando di descrivere i motivi che hanno portato alle singole decisioni prese.
-	
-	\paragraph{Implementazione componenti}
-	\footnotesize Segue una tabella nella quale si mostrano quali sorgenti implementano le componenti
-	\normalsize
-	
-	\begin{tcolorbox}[width=\textwidth,colback={Cornsilk2}]\label{tab:sorgenti}
-		\begin{tabularx}{\textwidth}{p{8cm}  l}
-			\textbf{Componente}			&	\textbf{Sorgente}	\\\toprule
-			Human-Machine Interface 	& 	hmi-input.c			\\
-			&	hmi-output.c		\\\midrule
-			steer-by-wire				&	steer-by-wire.c		\\\midrule
-			throttle control			&	throttle-control.c	\\\midrule
-			brake-by-wire				&	brake-by-wire.c		\\\midrule
-			front windshield camera		&	windshield-camera.c	\\\midrule
-			forward facing radar		&	bytes-sensors.c		\\\midrule
-			park assist					&	park-assist.c		\\\midrule
-			surround view cameras		&	bytes-sensors.c		\\\midrule
-			central-ECU					&	central-ECU.c
-		\end{tabularx}
-	\end{tcolorbox}
-	
-	\paragraph{Gerarchia del programma}
-	La gerarchia del progetto è stata ottenuta dalla richiesta cercando di massimizzare la semplicità.
-	Questa rappresenta lo scheletro del progetto e definisce quindi il flusso di lavoro dello stesso. In particolare si può notare in figura~\ref{fig:gerarchia} che esistono due soli processi che inizializzano dei figli, ovvero l'unita di controllo centrale \textit{central-ECU}, che rappresenta anche il programma genitore di tutto il sistema, e \textit{park-assist}, che inizializza il suo unico figlio \textit{surround-view cameras}.\\
-	È stato scelto di rendere l'unità di controllo la componente genitore di tutto il sistema dato che è in collegamento con la quasi totalità dei processi agenti, cosicché il sistema fosse inizializzato e gestito nel flusso di questa. La soluzione sembrava essere coerente con la strutturazione dei sistemi ADAS reali.\\
-	Nella \textit{central-ECU} vengono quindi inizializzati le pipe, vengono eseguite varie \texttt{fork} per la creazione e la connessione in lettura/scrittura ai pipe degli attuatori, delle due componenti relative alla \textit{Human-Machine Interface} ed infine i due sensori \textit{front windshield camera} e \textit{forward facing radar}. L'unico componente figlio della \textit{central-ECU} non immediatamente inizializzato rimane \textit{park-assist}\footnote{La decisione di non inizializzare il componente immediatamente deriva dalla richiesta, ovvero dall'elemento facoltativo numero 4. Vedi la tabella di pagina~\pageref{tab:facoltativi}.} il quale verrà inizializzato (comprensivo della socket che utilizzerà per comunicare con la \textit{central-ECU}) e messo in esecuzione dalla stessa unità di controllo quando questa riceverà un comando di \textit{PARCHEGGIO} dall'interfaccia oppure dal sensore \textit{windshield camera}.\\
-	Con le stesse motivazioni è stato deciso di rendere la \textit{central-ECU} "server" nella connessione socket tra questa e \textit{park assist}. In questo modo sarà sempre la central-ECU a gestire il flusso di lavoro e a dettare i tempi del sistema.
-	All'avvio della procedura di parcheggio, successivamente al ciclo di rallentamento, la \textit{central-ECU} avvierà la componente \textit{park-assist}, la quale si connetterà alla socket e inizializzerà \textit{surround-view cameras}. Terminata l'inizializzazione, l'unita di controllo invierà un messaggio (``INIZIO'') tramite la socket a \textit{park assist}, la quale leggerà per 30 iterazioni (intervallate da \texttt{sleep(1)}) i dati dalla sorgente binaria e i dati ricevuti dalla componente figlia tramite la pipe di comunicazione e li invierà alla \textit{central-ECU} che li scandirà alla ricerca di particolari pattern\footnote{Per conoscere i pattern binari (espressi in codifica esadecimale) prendere visione del paragrafo 2, sotto-paragrafo \textit{Componente central-ECU} della richiesta \textit{Allegato\_01.pdf}}. Se non venissero evidenziate congruenze allora la central-ECU informerà tramite un messaggio (``CONTINUA'') \textit{park assist} perché possa proseguire nell'iterazione successiva. Se così non fosse allora verrà posto sulla socket un messaggio di riavvio (``RIAVVIO''), affinché il parcheggio inizi nuovamente il ciclo delle 30 iterazioni. Concluse le 30 iterazioni senza ''insuccessi'' allora l'esecuzione del parcheggio risulterà conclusa e il processo terminerà.
-	
-	\paragraph{IPC nel sistema}
-	In figura~\ref{fig:comunicazione}, a pagina~\pageref{fig:comunicazione}, si mostra una schematizzazione molto stilizzata della rete comunicativa del sistema.
-	La struttura di comunicazione maggiormente sfruttata all'interno del sistema è la \textbf{pipe} la quale implementa 8 canali di comunicazione su 9 (segnali esclusi). Il motivo della scelta delle \textbf{pipe} a discapito di altri metodi risiede nel fatto che le comunicazioni sono sostanzialmente unidirezionali (sensori $\rightarrow$ unità di controllo, unità di controllo $\rightarrow$ attuatori, con le due evidenti eccezioni di \textit{park assist} e di \textit{surround-view cameras}). La scelta ha permesso di implementare un sistema relativamente semplice, con un'unica \textbf{socket}, struttura più complessa da implementare.\\
-	Il protocollo di gestione dei canali risulta unico per tutte le tipologie di canali e per tutti i processi: il processo padre, l'unico processo che comunica con i propri processi figli, produce ed inizializza correttamente il file \texttt{.pipe} o \texttt{.sock} (rappresentante socket \texttt{UNIX}) nella directory \textit{tmp} (dopo aver avuto l'accortezza di eliminare creazioni pendenti da vecchie esecuzioni tramite un \texttt{unlink}), il processo figlio si connette con  l'adeguata procedura, differente tra pipe e socket, al canale di comunicazione nella fase inizializzazione del processo. Se la connessione non dovesse riuscire (se la \texttt{openat} o la \texttt{connect} dovessero generare un errore) il figlio terminerebbe con codice di errore \texttt{EXIT\_FAILURE} e stamperebbe il codice tramite \texttt{perror(3)} nel file di log adibito a \textit{stderr}: \texttt{./log/errors.log}\\
-	Per l'implementazione del parcheggio il canale di comunicazione è stato strutturato sotto forma di una socket per semplificare la comunicazione tra i due processi e perché la gestione del contenuto della socket fosse meno soggetto a problemi di concorrenza. Ogni volta che la \textit{central-ECU} riceve dalla socket uno dei pattern non ammissibili, che simulano una situazione di parcheggio non accettabile, il protocollo prevede che invii un messaggio di riavvio a \textit{park assist}. Il protocollo prevede che ad ogni ciclo \textit{park assist} legga dalla pipe non bloccante \textit{cameras.pipe} i byte da inviare alla \textit{central-ECU} e che li inoltri. Se, eseguito l'invio, riceve dalla \textit{central-ECU} un messaggio che indica la necessità di riavvio, allora non fa altro che resettare il contatore di iterazioni e riprendere il ciclo.
-	\begin{figure}[t]
-		\includegraphics[scale=0.9, center]{./include/SO_Progetto_Diagrammi-Comunicazione.pdf}
-		\caption{In figura sono rappresentati i percorsi comunicativi inseriti nel sistema: sono presenti 8 pipe, 1 socket e 12 di segnalazioni, 5 rappresentate e 7 assenti. Sono infatti stati esclusi i percorsi delle segnalazioni \texttt{SIGKILL} per alleggerire il grafico.}
-		\label{fig:comunicazione}
-	\end{figure}
-	\normalsize
-	\paragraph{Gestione dei log}
-	I log rappresentano, nel sistema implementato, la simulazione delle componenti reali, ovvero mostrano le azioni eseguite dalle varie componenti.\\
-	Per ogni componente, esclusa la \textit{Human-Machine Interface}, è presente un file di log specifico nel quale vengono scritte le azioni eseguite.
-	Gli inserimenti nel file di log seguono le richieste specificate nella richiesta del progetto \textit{Allegato\_1.pdf}.
-	Perché le shell di input e di output risultassero pulite da ogni eventuale segnalazione diretta allo \textit{stderr} è stato adottato il file \texttt{./log/errors.log} come soluzione per inserirvi tutti i messaggi dirette a questo.
-	
-	\paragraph{Funzioni condivise}
-	Durante lo sviluppo del sistema sono risultate utili la definizione di alcune funzioni di utilità generale per il sistema e di alcune macros, anch'esse sfruttate in più contesti. Tutto ciò è stato inserito all'interno del sorgente \texttt{service-functions.c}, il cui header risulta quindi \texttt{service-functions.h}.
-	
-	\part{Esempi di esecuzione}
-	Nella seguente sezione sono mostrati 2 esempi di funzionamento: il primo mostra un funzionamento in modalità ARTIFICIALE con comando dato da input ``INIZIO'' e alcuni ``ARRESTO'', nel secondo si esegue in modalità NORMALE direttamente il parcheggio con un terminale selezionato. All'interno dello \texttt{.zip} è stata  inserita una cartella \textit{Esempi di funzionamento} nella quale sono stati inseriti i file di log risultanti dalle esecuzioni presentate.
-	\paragraph{Esempio: ARTIFICIALE standard}
-	Il presente esempio è teso a mostrare un'esecuzione tipica del programma.
-	Il programma è stato eseguito tramite il comando \texttt{./ADAS-simulator ARTIFICIALE}. Non appena il programma si è inizializzato è stato inserito il comando ``INIZIO''. Il programma si è avviato correttamente iniziando ad inserire sul terminale di output i comandi impartiti da parte della \textit{central-ECU} alle rispettive componenti. Sono stati inseriti, durante l'esecuzione, quattro comandi di ``ARRESTO''. Il programma ha eseguito correttamente la procedura di arresto, bloccando istantaneamente l'auto e ripartendo la corsa istantaneamente. La procedura di parcheggio, ultimo comando da parte della \textit{windshield camera}, è terminata dopo 30 iterazioni (30 secondi).
-	
-	\paragraph{Esempio: NORMALE terminale personalizzato}
-	Il presente esempio è teso a mostrare un'esecuzione del programma relativamente atipica e potenzialmente problematica, un'esecuzione nella quale l'utente inserisce inizialmente una stringa non accettabile, poi il comando ``ARRESTO'', sebbene il mezzo non sia ancora in movimento ed infine il comando ``PARCHEGGIO''.
-	Il programma è stato eseguito tramite il comando \texttt{./ADAS-simulator NORMALE --term xfce4-terminal}. Non appena il programma si è inizializzato è stato inserito come comando ``42'', che è risultato non accettabile, poi ``ARRESTO'', anch'esso non accettabile, ed infine ``parcheggio'' che ha dato il via alla procedura di parcheggio, terminata con successo dopo un ciclo di iterazioni. È stata infatti implementata una funzione per il confronto tra stringhe case-insensitive per i comandi dalla hmi-input.
-	
+
 	\newpage
 	\hrule
 	\tableofcontents
