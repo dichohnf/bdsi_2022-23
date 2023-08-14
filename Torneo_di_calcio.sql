@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS Torneo(
 	nome		VARCHAR(30) NOT NULL,
     edizione	TINYINT UNSIGNED
 				DEFAULT 1 NOT NULL,
-    categoria	ENUM('M','F','N') NOT NULL,		-- 
+    categoria	ENUM('M','F','N') NOT NULL,
     tipologia	ENUM('5','7','11') NOT NULL,
     
     UNIQUE (nome, categoria, tipologia, edizione)
@@ -20,37 +20,38 @@ CREATE TABLE IF NOT EXISTS Torneo(
 CREATE TABLE IF NOT EXISTS Fase(
     codice		VARCHAR(6) 				-- F-xxxx
 				PRIMARY KEY,
-    torneo		VARCHAR(5) NOT NULL
-				REFERENCES Torneo(codice)
-				ON DELETE CASCADE
-				ON UPDATE CASCADE,
-	nome		VARCHAR(40) NOT NULL,
+    torneo		VARCHAR(5) NOT NULL,
+    nome		VARCHAR(40) NOT NULL,
     modalita	ENUM('Girone','Eliminazione') NOT NULL,
     scontri		TINYINT UNSIGNED 
 				DEFAULT 1 NOT NULL,
-    
-	UNIQUE(torneo, nome)		
+                
+	UNIQUE (torneo, nome),
+	FOREIGN KEY (torneo)
+		REFERENCES Torneo(codice)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS Insieme_squadre(
     codice		VARCHAR(7) 				-- I-xxxxx
 				PRIMARY KEY,
     fase		VARCHAR(6) NOT NULL,
-    nome		CHAR(1) DEFAULT NULL, 	-- Lettera dell'alfabeto 
-										-- o NULL per le fasi con un solo insieme di squadre
-	FOREIGN KEY (fase)
+    nome		CHAR(1) DEFAULT NULL, 	/* Lettera dell'alfabeto
+										 * o NULL per le Fasi con un solo Insieme di squadre */
+	UNIQUE (fase, nome),
+    FOREIGN KEY (fase)
 		REFERENCES Fase(codice)
 		ON DELETE CASCADE
-        ON UPDATE CASCADE,
-	UNIQUE (fase, nome)
+        ON UPDATE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS Campo(
-	codice		VARCHAR(5) 
+	codice		VARCHAR(5)				-- C-xxx 
 				PRIMARY KEY,
     nome		VARCHAR(50) NOT NULL,
     telefono 	VARCHAR(15) DEFAULT NULL,
-    comune		VARCHAR(30) NOT NULL,
+    comune		VARCHAR(40) NOT NULL,
     via			VARCHAR(40) NOT NULL,
     civico		SMALLINT UNSIGNED NOT NULL,
     UNIQUE(comune, via, civico),
@@ -58,10 +59,10 @@ CREATE TABLE IF NOT EXISTS Campo(
 );
 
 CREATE TABLE IF NOT EXISTS Squadra(
-    codice			VARCHAR(8) PRIMARY KEY,
+    codice			VARCHAR(8) PRIMARY KEY,	-- S-xxxxxx
 	nome			VARCHAR(40) NOT NULL,
     tipologia		ENUM('5','7') NOT NULL,
-    categoria		CHAR(1) NOT NULL,
+    categoria		ENUM('M','F','N') NOT NULL,
     colori			VARCHAR(30) DEFAULT NULL,
 	campo			VARCHAR(5) NOT NULL,
 
@@ -81,13 +82,13 @@ CREATE TABLE IF NOT EXISTS Raggruppamento(
         ON UPDATE CASCADE,
 	FOREIGN KEY (squadra)
 		REFERENCES Squadra(codice)
-        ON DELETE CASCADE
+        ON DELETE NO ACTION
         ON UPDATE CASCADE,
 	PRIMARY KEY (insieme_squadre, squadra)
 );
 
 CREATE TABLE IF NOT EXISTS Giornata(
-    codice		VARCHAR(7) PRIMARY KEY,
+    codice		VARCHAR(7) PRIMARY KEY,		-- G-xxxxx
 	fase		VARCHAR(6) NOT NULL,
 	numero		TINYINT UNSIGNED NOT NULL,
     
@@ -100,15 +101,12 @@ CREATE TABLE IF NOT EXISTS Giornata(
 
 CREATE TABLE IF NOT EXISTS Giocatore(
 	tessera			SMALLINT UNSIGNED PRIMARY KEY,
-	nome			VARCHAR(20) NOT NULL,
-    cognome			VARCHAR(20) NOT NULL,
-    genere			CHAR(1) NOT NULL,
+	nome			VARCHAR(100) NOT NULL,		-- La dimensione elevata permette l'inserimento di secondi nomi
+    cognome			VARCHAR(100) NOT NULL,		-- La dimensione elevata permette l'inserimento di vari cognomi
+    genere			ENUM('M','F','N') NOT NULL,
     data			DATE NOT NULL,
-    squadra			MEDIUMINT UNSIGNED,
-    numero			TINYINT UNSIGNED,
     
-    UNIQUE (nome, cognome, data),
-    UNIQUE (squadra, numero)
+    UNIQUE (nome, cognome, data)
 );
 
 CREATE TABLE IF NOT EXISTS Rosa(
@@ -129,16 +127,16 @@ CREATE TABLE IF NOT EXISTS Rosa(
 
 CREATE TABLE IF NOT EXISTS Arbitro(
 	tessera			SMALLINT UNSIGNED PRIMARY KEY,
-	nome			VARCHAR(20) NOT NULL,
-    cognome			VARCHAR(20) NOT NULL,
-    genere			CHAR(1) NOT NULL,
+	nome			VARCHAR(100) NOT NULL,		-- La dimensione elevata permette l'inserimento di secondi nomi
+    cognome			VARCHAR(100) NOT NULL,		-- La dimensione elevata permette l'inserimento di vari cognomi
+    genere			ENUM('M','F','N') NOT NULL,
     data			DATE NOT NULL,
     
 	UNIQUE (nome, cognome, data)
 );
 
 CREATE TABLE IF NOT EXISTS Partita(
-    codice				VARCHAR(9) PRIMARY KEY,
+    codice				VARCHAR(9) PRIMARY KEY,		-- P-xxxxxxx
 	squadra_casa		VARCHAR(8) NOT NULL,
     squadra_ospite		VARCHAR(8) NOT NULL,
     giornata			VARCHAR(7) NOT NULL,
@@ -175,10 +173,10 @@ CREATE TABLE IF NOT EXISTS Partita(
 CREATE TABLE IF NOT EXISTS Statistiche_partita(
 	giocatore			SMALLINT UNSIGNED NOT NULL,
     partita				VARCHAR(9) NOT NULL,
-    gol					TINYINT UNSIGNED,
-    assist				TINYINT UNSIGNED,
-	ammonizioni			ENUM ('0','1','2'),
-	espulsione_giornate	TINYINT UNSIGNED DEFAULT 0,
+    gol					TINYINT UNSIGNED 	DEFAULT 0,
+    assist				TINYINT UNSIGNED 	DEFAULT 0,
+	ammonizioni			ENUM ('0','1','2') 	DEFAULT '0',
+	espulsione_giornate	TINYINT UNSIGNED 	DEFAULT 0,
     
     PRIMARY KEY (giocatore, partita),
     FOREIGN KEY(giocatore)
