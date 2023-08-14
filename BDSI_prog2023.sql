@@ -17,11 +17,13 @@ CREATE TABLE IF NOT EXISTS Torneo(
 );
 
 CREATE TABLE IF NOT EXISTS Fase(
-    codice		VARCHAR(6) PRIMARY KEY,
+    codice		VARCHAR(6) 
+				PRIMARY KEY,
     torneo		VARCHAR(5) NOT NULL,
 	nome		VARCHAR(40) NOT NULL,
     modalita	ENUM('Girone','Eliminazione') NOT NULL,
-    scontri		TINYINT UNSIGNED DEFAULT 1 NOT NULL,
+    scontri		TINYINT UNSIGNED 
+				DEFAULT 1 NOT NULL,
     
 	UNIQUE(torneo, nome),
 	FOREIGN KEY (torneo)
@@ -31,11 +33,11 @@ CREATE TABLE IF NOT EXISTS Fase(
 );
 
 CREATE TABLE IF NOT EXISTS Insieme_squadre(
-    codice		VARCHAR(7)
+    codice		VARCHAR(7) 
 				PRIMARY KEY,
     fase		VARCHAR(6) NOT NULL,
-    nome		CHAR(1),
-    
+    nome		CHAR(1) DEFAULT NULL, -- Lettera dell'alfabeto 
+									  -- o NULL per le fasi con un solo insieme di squadre
 	FOREIGN KEY (fase)
 		REFERENCES Fase(codice)
 		ON DELETE CASCADE
@@ -44,9 +46,10 @@ CREATE TABLE IF NOT EXISTS Insieme_squadre(
 );
 
 CREATE TABLE IF NOT EXISTS Campo(
-	codice		VARCHAR(5) PRIMARY KEY,
+	codice		VARCHAR(5) 
+				PRIMARY KEY,
     nome		VARCHAR(50) NOT NULL,
-    telefono 	VARCHAR(15),
+    telefono 	VARCHAR(15) DEFAULT NULL,
     comune		VARCHAR(30) NOT NULL,
     via			VARCHAR(40) NOT NULL,
     civico		SMALLINT UNSIGNED NOT NULL,
@@ -149,7 +152,8 @@ CREATE TABLE IF NOT EXISTS Partita(
 	FOREIGN KEY(arbitro)
 		REFERENCES Arbitro(tessera)
         ON DELETE NO ACTION
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
+	UNIQUE (squadra_casa, squadra_ospite, giornata)
 );
 
 CREATE TABLE IF NOT EXISTS Statistiche_partita(
