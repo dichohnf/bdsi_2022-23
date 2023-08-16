@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS Raggruppamento(
 	insieme_squadre 	VARCHAR(7),
     squadra 			VARCHAR(8),
     
+	PRIMARY KEY (insieme_squadre, squadra),
     FOREIGN KEY (insieme_squadre)
 		REFERENCES Insieme_squadre(codice)
         ON DELETE CASCADE
@@ -83,8 +84,7 @@ CREATE TABLE IF NOT EXISTS Raggruppamento(
 	FOREIGN KEY (squadra)
 		REFERENCES Squadra(codice)
         ON DELETE NO ACTION
-        ON UPDATE CASCADE,
-	PRIMARY KEY (insieme_squadre, squadra)
+        ON UPDATE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS Giornata(
@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS Rosa(
     numero_maglia TINYINT UNSIGNED,
     
     PRIMARY KEY(squadra, giocatore),
+	UNIQUE (squadra, numero_maglia),
     FOREIGN KEY (squadra)
 		REFERENCES Squadra(codice)
         ON DELETE CASCADE
@@ -123,6 +124,7 @@ CREATE TABLE IF NOT EXISTS Rosa(
 		REFERENCES Giocatore(tessera)
         ON DELETE CASCADE
         ON UPDATE CASCADE
+
 );
 
 CREATE TABLE IF NOT EXISTS Arbitro(
@@ -170,7 +172,7 @@ CREATE TABLE IF NOT EXISTS Partita(
 	UNIQUE (squadra_casa, squadra_ospite, giornata)
 );
 
-CREATE TABLE IF NOT EXISTS Statistiche_partita(
+CREATE TABLE IF NOT EXISTS Statistiche(
 	giocatore			SMALLINT UNSIGNED NOT NULL,
     partita				VARCHAR(9) NOT NULL,
     gol					TINYINT UNSIGNED 	DEFAULT 0,
@@ -189,15 +191,169 @@ CREATE TABLE IF NOT EXISTS Statistiche_partita(
         ON UPDATE CASCADE
 );
 
+
 /*
- * SEZIONE DEDICATA ALLE FUNZIONI AUSILIARI
+ * SEZIONE DEDICATA ALLE PROCEDURE, ALLE FUNZIONI E ALLE VISTE AUSILIARIE
  */
+ 
+/*
+ * La successiva vista rappresenta l'inisieme di tutti i tesserati.
+ *Occorre per operare la creazione di una nuova tessera.
+ */
+CREATE VIEW tesserati
+(tessera, nome, cognome, data, genere) AS 
+(SELECT * FROM Giocatore UNION SELECT * FROM Arbitro);
+	
+/*
+ * SEZIONE DEDICATA AI TRIGGER
+ * La sezione successiva definisce i trigger per il controllo 
+ * dei vincoli non esprimibili tramite i costrutti del linguaggio.
+ * I trigger relativi agli inserimenti (i primi della lista) 
+ * condividono una sezione relativa al controllo del formato del codice.
+ * Non è stato possibile implementare una procedura unica per tutti
+ * i trigger per limitazioni del linguaggio: non è possibile
+ * ustilizzare in questi i meccanismi dinamici di SQL (es. prepared functions)
+ * per il riconoscimento della tabella da cui eseguire la ricerca
+ * dell'indice minimo del codice.
+ * I trigger per gli inserimenti quindi controllano il formato del 
+ * codice e, qualora non sia corretto, lo assegnano individuano l'indice 
+ * minimo tra quelli disponibili. (Non è detto che le istanze inserite 
+ * cronologicamente dopo abbiano codice maggiore). In caso di assegnazione
+ * viene restituito uno warning affinchè sia evidente l'avvenimento.
+ */
+ 
 DELIMITER $$
 
-CREATE TRIGGER torneo_inserimento AFTER INSERT ON Torneo
+CREATE TRIGGER torneo_inserimento BEFORE INSERT ON Torneo
 FOR EACH ROW
 BEGIN
-	IF NEW.codice != 'T-%' OR NEW.codice IS NULL 
-	THEN SET NEW.codice = (SELECT MIN(CAST(SUBSTRING(codice FROM 2) AS DECIMAL)) FROM Torneo);
+	DECLARE warnmsg VARCHAR(255); 
+	IF NEW.codice NOT LIKE 'T-%' OR NEW.codice IS NULL 
+	THEN
+		SET NEW.codice = CONCAT('T-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Torneo) + 1, '0'));
+		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+    END IF;
+END$$
+
+CREATE TRIGGER fase_inserimento BEFORE INSERT ON Fase
+FOR EACH ROW
+BEGIN
+	DECLARE warnmsg VARCHAR(255);
+	IF NEW.codice != 'F-%' OR NEW.codice IS NULL 
+	THEN
+		SET NEW.codice = CONCAT('F-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Fase) + 1, '0'));
+		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
 	END IF;
 END$$
+
+CREATE TRIGGER insieme_squadre_inserimento BEFORE INSERT ON Insieme_squadre
+FOR EACH ROW
+BEGIN
+	DECLARE warnmsg VARCHAR(255);
+	IF NEW.codice != 'I-%' OR NEW.codice IS NULL 
+	THEN
+		SET NEW.codice = CONCAT('I-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Insieme_squadre) + 1, '0'));
+		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+	END IF;
+END$$
+
+CREATE TRIGGER campo_inserimento BEFORE INSERT ON Campo
+FOR EACH ROW
+BEGIN
+	DECLARE warnmsg VARCHAR(255);
+	IF NEW.codice != 'C-%' OR NEW.codice IS NULL 
+	THEN
+		SET NEW.codice = CONCAT('C-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Campo) + 1, '0'));
+		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+	END IF;
+END$$
+
+CREATE TRIGGER squadra_inserimento BEFORE INSERT ON Squadra
+FOR EACH ROW
+BEGIN
+	DECLARE warnmsg VARCHAR(255);
+	IF NEW.codice != 'S-%' OR NEW.codice IS NULL 
+	THEN
+		SET NEW.codice = CONCAT('S-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Squadra) + 1, '0'));
+		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+	END IF;
+END$$
+
+CREATE TRIGGER giornata_inserimento BEFORE INSERT ON Giornata
+FOR EACH ROW
+BEGIN
+	DECLARE warnmsg VARCHAR(255);
+	IF NEW.codice != 'G-%' OR NEW.codice IS NULL 
+	THEN
+        SET NEW.codice = CONCAT('G-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Giornata) + 1, '0'));
+		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+	END IF;
+END$$
+
+CREATE TRIGGER giocatore_inserimento BEFORE INSERT ON Giocatore
+FOR EACH ROW
+BEGIN
+	DECLARE warnmsg VARCHAR(255);
+	IF NEW.tessera IS NULL 
+	THEN 
+		SET NEW.tessera = COALESCE((SELECT MIN(tessera) FROM tesserati) + 1, 0);
+		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con tessera: ", NEW.tessera);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+	END IF;
+END$$
+
+CREATE TRIGGER arbitro_inserimento BEFORE INSERT ON Arbitro
+FOR EACH ROW
+BEGIN
+	DECLARE warnmsg VARCHAR(255);
+	IF NEW.tessera IS NULL 
+	THEN 
+		SET NEW.tessera = COALESCE((SELECT MIN(tessera) FROM tesserati) + 1, 0);
+		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con tessera: ", NEW.tessera);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+	END IF;
+END$$
+
+CREATE TRIGGER Partita_inserimento BEFORE INSERT ON Squadra
+FOR EACH ROW
+BEGIN
+	DECLARE warnmsg VARCHAR(255);
+	IF NEW.codice != 'P-%' OR NEW.codice IS NULL 
+	THEN
+		SET NEW.codice = CONCAT('P-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Partita) + 1, '0'));
+		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+	END IF;
+END$$
+
+DELIMITER ;
+
+
+/*
+ * SEZIONE DEDICATA AGLI INSERIMENTI
+ */
+
+# Si mostra un inserimento manuale da script (tabella Torneo)
+INSERT INTO Torneo(nome, tipologia, categoria, edizione)
+	VALUES	('Firenze Inverno','7','N',1),
+			('Firenze Estate','5','M',1);
+            
+INSERT INTO Giocatore (tessera, nome, cognome, data, genere)
+	VALUES  (NULL, 'Pippo', 'deVez', '2021-10-15', 'M'),
+			(NULL, 'Luca', 'Micaio', '2022-02-27', 'N');
+
+
+
+/*
+ * SEZIONE DEDICATA ALLE INTERROGAZIONI
+ */
+ 
+ # SELECT * FROM Torneo ORDER BY CAST(SUBSTRING(codice FROM 3) AS DECIMAL);
+ # SELECT * FROM Giocatore;
+ 
