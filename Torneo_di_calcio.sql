@@ -11,10 +11,10 @@ CREATE TABLE IF NOT EXISTS Torneo(
 	nome		VARCHAR(30) NOT NULL,
     edizione	TINYINT UNSIGNED
 				DEFAULT 1 NOT NULL,
-    categoria	ENUM('M','F','N') NOT NULL,
+    genere	ENUM('M','F','N') NOT NULL,
     tipologia	ENUM('5','7','11') NOT NULL,
     
-    UNIQUE (nome, categoria, tipologia, edizione)
+    UNIQUE (nome, genere, tipologia, edizione)
 );
 
 CREATE TABLE IF NOT EXISTS Fase(
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS Squadra(
     codice			VARCHAR(8) PRIMARY KEY,	-- S-xxxxxx
 	nome			VARCHAR(40) NOT NULL,
     tipologia		ENUM('5','7') NOT NULL,
-    categoria		ENUM('M','F','N') NOT NULL,
+    genere		ENUM('M','F','N') NOT NULL,
     colori			VARCHAR(30) DEFAULT NULL,
 	campo			VARCHAR(5) NOT NULL,
 
@@ -198,12 +198,27 @@ CREATE TABLE IF NOT EXISTS Statistiche(
  
 /*
  * La successiva vista rappresenta l'inisieme di tutti i tesserati.
- *Occorre per operare la creazione di una nuova tessera.
+ * Occorre per operare la creazione di una nuova tessera.
  */
 CREATE VIEW tesserati
 (tessera, nome, cognome, data, genere) AS 
 (SELECT * FROM Giocatore UNION SELECT * FROM Arbitro);
 	
+    
+/*
+ * La successiva vista rappresenta l'insieme dei tornei che sono terminati.
+ * Per associare ad un torneo l'attributo di "terminato" viene preso come
+ * discriminante la terminazione di tutte le partite del torneo. 
+ */
+ 
+ CREATE VIEW tornei_terminati
+ (codice, nome, edizione, genere, tipologia) AS
+ (SELECT * FROM Torneo WHERE codice IN
+	(SELECT torneo FROM Fase WHERE codice IN 
+		(SELECT fase FROM Giornata WHERE 
+			codice IN (SELECT giornata FROM Partita) AND													-- Giornata con almeno una partita definita
+            codice NOT IN (SELECT giornata FROM Partita WHERE gol_casa IS NULL OR gol_ospite IS NULL))));	-- Giornata con nessuna partita (NOT IN) non terminata (IS NULL) 
+    
 /*
  * SEZIONE DEDICATA AI TRIGGER
  * La sezione successiva definisce i trigger per il controllo 
@@ -288,11 +303,33 @@ CREATE TRIGGER giornata_inserimento BEFORE INSERT ON Giornata
 FOR EACH ROW
 BEGIN
 	DECLARE warnmsg VARCHAR(255);
+    
 	IF NEW.codice != 'G-%' OR NEW.codice IS NULL 
 	THEN
         SET NEW.codice = CONCAT('G-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Giornata) + 1, '0'));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+	END IF;
+    
+    IF (SELECT modalita FROM Fase WHERE codice = NEW.fase) = 'Girone'
+	THEN
+		IF ((SELECT COUNT(codice) AS n_giornate_act FROM Giornata WHERE fase = NEW.fase) +1)  < 		-- somma 1 per comprendere anche la giornata che sta venendo inserita
+	       (((SELECT COUNT(squadra) AS n_giornate_exp FROM Raggruppamento WHERE insieme_squadre = 
+				(SELECT codice FROM Insieme_squadre WHERE fase = NEW.fase)
+			) -1) * (SELECT scontri FROM fase WHERE codice=NEW.fase))																			-- sottratto 1 dato il vincolo #giornate = #squadre -1
+		THEN
+			SET warnmsg = CONCAT("Giornate insufficienti. Occorrono ulteriori ", (n_giornate_exp - n_giornate_act), " giornate per il completamento della fase");
+			SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg;
+        END IF;
+    ELSE
+		IF n_giornate_act < (
+        SELECT FLOOR(LOG2((SELECT COUNT(squadra) FROM Raggrupamento WHERE insieme_squadre = 
+			(SELECT codice FROM Insieme_squadre WHERE fase = NEW.fase)))) * (SELECT scontri FROM fase WHERE codice=NEW.fase)
+		)
+		THEN 
+			SET warnmsg = CONCAT("Giornate insufficienti. Occorrono ulteriori ", (n_giornate_exp - n_giornate_act), " giornate per il completamento della fase");
+			SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg;
+        END IF;
 	END IF;
 END$$
 
@@ -320,7 +357,7 @@ BEGIN
 	END IF;
 END$$
 
-CREATE TRIGGER Partita_inserimento BEFORE INSERT ON Squadra
+CREATE TRIGGER partita_inserimento BEFORE INSERT ON Partita
 FOR EACH ROW
 BEGIN
 	DECLARE warnmsg VARCHAR(255);
@@ -340,15 +377,31 @@ DELIMITER ;
  */
 
 # Si mostra un inserimento manuale da script (tabella Torneo)
-INSERT INTO Torneo(nome, tipologia, categoria, edizione)
-	VALUES	('Firenze Inverno','7','N',1),
-			('Firenze Estate','5','M',1);
+INSERT INTO Torneo(nome, tipologia, genere, edizione)
+VALUES	('Firenze Inverno','7','N',1),
+		('Firenze Estate','5','M',1);
+            
+INSERT INTO Fase(torneo, nome, modalita, scontri)
+VALUES ('T-0', 'Eliminazione unico', 'Eliminazione', 1);
+
+INSERT INTO Campo (nome, telefono, comune, via, civico)
+VALUES ('Campetto', '055055055', 'Firenze', 'via senza fine', 8);
+
+INSERT INTO Squadra(nome, tipologia, genere, campo)
+VALUES ('Ovo',	'5', 'N', 'C-0'),
+	   ('Sodo',	'5', 'N', 'C-0');
+
             
 INSERT INTO Giocatore (tessera, nome, cognome, data, genere)
-	VALUES  (NULL, 'Pippo', 'deVez', '2021-10-15', 'M'),
-			(NULL, 'Luca', 'Micaio', '2022-02-27', 'N');
+VALUES  (NULL, 'Pippo', 'deVez', '2021-10-15', 'M'),
+		(NULL, 'Luca', 'Micaio', '2022-02-27', 'N');
+        
+INSERT INTO Insieme_squadre (fase, nome)
+VALUES ('F-0', NULL);
 
-
+INSERT INTO Raggruppamento (insieme_squadre, squadra)
+VALUES ('I-0','S-0'),
+	   ('I-0','S-1');
 
 /*
  * SEZIONE DEDICATA ALLE INTERROGAZIONI
@@ -356,4 +409,9 @@ INSERT INTO Giocatore (tessera, nome, cognome, data, genere)
  
  # SELECT * FROM Torneo ORDER BY CAST(SUBSTRING(codice FROM 3) AS DECIMAL);
  # SELECT * FROM Giocatore;
+ # SELECT * FROM Fase;
+ # SELECT * FROM Squadra;
+ # SELECT * FROM Insieme_squadre;
+ # SELECT * FROM Raggruppamento;
+ # SELECT * FROM tornei_terminati;
  
