@@ -1,5 +1,5 @@
-"torneo","fase","numero"
-1,"Fase a gironi",2
-1,"Finale a eliminazione",1
-2,"Fase a gironi",3
-2,"Finale a eliminazione",2
+"codice","fase","numero"
+"G-100","F-0",1
+NULL,"F-0",2
+NULL,"F-0",3
+NULL,"F-0",4

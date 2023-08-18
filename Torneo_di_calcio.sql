@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS Torneo(
 	nome		VARCHAR(30) NOT NULL,
     edizione	TINYINT UNSIGNED
 				DEFAULT 1 NOT NULL,
-    genere	ENUM('M','F','N') NOT NULL,
-    tipologia	ENUM('5','7','11') NOT NULL,
+    genere		ENUM('M','F','N') NOT NULL,
+    tipologia	TINYINT UNSIGNED NOT NULL,
     
     UNIQUE (nome, genere, tipologia, edizione)
 );
@@ -61,8 +61,8 @@ CREATE TABLE IF NOT EXISTS Campo(
 CREATE TABLE IF NOT EXISTS Squadra(
     codice			VARCHAR(8) PRIMARY KEY,	-- S-xxxxxx
 	nome			VARCHAR(40) NOT NULL,
-    tipologia		ENUM('5','7') NOT NULL,
-    genere		ENUM('M','F','N') NOT NULL,
+    tipologia		TINYINT UNSIGNED NOT NULL,
+    genere			ENUM('M','F','N') NOT NULL,
     colori			VARCHAR(30) DEFAULT NULL,
 	campo			VARCHAR(5) NOT NULL,
 
@@ -206,11 +206,11 @@ CREATE VIEW tesserati
 	
     
 /*
+
  * La successiva vista rappresenta l'insieme dei tornei che sono terminati.
  * Per associare ad un torneo l'attributo di "terminato" viene preso come
  * discriminante la terminazione di tutte le partite del torneo. 
  */
- 
  CREATE VIEW tornei_terminati
  (codice, nome, edizione, genere, tipologia) AS
  (SELECT * FROM Torneo WHERE codice IN
@@ -224,14 +224,14 @@ CREATE VIEW tesserati
  * La sezione successiva definisce i trigger per il controllo 
  * dei vincoli non esprimibili tramite i costrutti del linguaggio.
  * I trigger relativi agli inserimenti (i primi della lista) 
- * condividono una sezione relativa al controllo del formato del codice.
+ * condividono una sezione per il controllo del formato del codice.
  * Non è stato possibile implementare una procedura unica per tutti
  * i trigger per limitazioni del linguaggio: non è possibile
- * ustilizzare in questi i meccanismi dinamici di SQL (es. prepared functions)
+ * utilizzare in questi i meccanismi dinamici di SQL (es. prepared functions)
  * per il riconoscimento della tabella da cui eseguire la ricerca
  * dell'indice minimo del codice.
  * I trigger per gli inserimenti quindi controllano il formato del 
- * codice e, qualora non sia corretto, lo assegnano individuano l'indice 
+ * codice e, qualora non sia corretto, lo assegnano, individuano l'indice 
  * minimo tra quelli disponibili. (Non è detto che le istanze inserite 
  * cronologicamente dopo abbiano codice maggiore). In caso di assegnazione
  * viene restituito uno warning affinchè sia evidente l'avvenimento.
@@ -239,101 +239,131 @@ CREATE VIEW tesserati
  
 DELIMITER $$
 
-CREATE TRIGGER torneo_inserimento BEFORE INSERT ON Torneo
+CREATE TRIGGER TR_INS_Torneo BEFORE INSERT ON Torneo
 FOR EACH ROW
 BEGIN
 	DECLARE warnmsg VARCHAR(255); 
-	IF NEW.codice NOT LIKE 'T-%' OR NEW.codice IS NULL 
+	IF NEW.codice NOT LIKE 'T-_%' OR NEW.codice IS NULL 
 	THEN
-		SET NEW.codice = CONCAT('T-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Torneo) + 1, '0'));
+		SET NEW.codice = CONCAT('T-', COALESCE(
+			(SELECT MIN(idx) FROM (
+				SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) +1 AS idx FROM Torneo 
+				HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Torneo)) AS idx_liberi)
+			, '0'));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
     END IF;
 END$$
 
-CREATE TRIGGER fase_inserimento BEFORE INSERT ON Fase
+CREATE TRIGGER TR_INS_Fase BEFORE INSERT ON Fase
 FOR EACH ROW
 BEGIN
 	DECLARE warnmsg VARCHAR(255);
-	IF NEW.codice != 'F-%' OR NEW.codice IS NULL 
+	IF NEW.codice NOT LIKE 'F-_%' OR NEW.codice IS NULL 
 	THEN
-		SET NEW.codice = CONCAT('F-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Fase) + 1, '0'));
+		SET NEW.codice = CONCAT('F-', COALESCE(
+			(SELECT MIN(idx) FROM (
+				SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) +1 AS idx FROM Fase 
+				HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Fase)) AS idx_liberi)
+			, '0'));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
 	END IF;
 END$$
 
-CREATE TRIGGER insieme_squadre_inserimento BEFORE INSERT ON Insieme_squadre
+CREATE TRIGGER TR_INS_Insieme_squadre BEFORE INSERT ON Insieme_squadre
 FOR EACH ROW
 BEGIN
 	DECLARE warnmsg VARCHAR(255);
-	IF NEW.codice != 'I-%' OR NEW.codice IS NULL 
+	IF NEW.codice NOT LIKE 'I-_%' OR NEW.codice IS NULL 
 	THEN
-		SET NEW.codice = CONCAT('I-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Insieme_squadre) + 1, '0'));
+		SET NEW.codice = CONCAT('I-', COALESCE(
+			(SELECT MIN(idx) FROM (
+				SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) +1 AS idx FROM Insieme_squadre 
+				HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Insieme_squadre)) AS idx_liberi)
+			, '0'));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
 	END IF;
 END$$
 
-CREATE TRIGGER campo_inserimento BEFORE INSERT ON Campo
+CREATE TRIGGER TR_INS_Campo BEFORE INSERT ON Campo
 FOR EACH ROW
 BEGIN
 	DECLARE warnmsg VARCHAR(255);
-	IF NEW.codice != 'C-%' OR NEW.codice IS NULL 
+	IF NEW.codice NOT LIKE 'C-_%' OR NEW.codice IS NULL 
 	THEN
-		SET NEW.codice = CONCAT('C-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Campo) + 1, '0'));
+		SET NEW.codice = CONCAT('C-', COALESCE(
+			(SELECT MIN(idx) FROM (
+				SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) +1 AS idx FROM Campo 
+				HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Campo)) AS idx_liberi)
+			, '0'));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
 	END IF;
 END$$
 
-CREATE TRIGGER squadra_inserimento BEFORE INSERT ON Squadra
-FOR EACH ROW
+CREATE TRIGGER TR_INS_Squadra BEFORE INSERT ON Squadra
+FOR EACH ROW  
 BEGIN
 	DECLARE warnmsg VARCHAR(255);
-	IF NEW.codice != 'S-%' OR NEW.codice IS NULL 
+	IF NEW.codice NOT LIKE 'S-_%' OR NEW.codice IS NULL 
 	THEN
-		SET NEW.codice = CONCAT('S-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Squadra) + 1, '0'));
+		SET NEW.codice = CONCAT('S-', COALESCE(
+			(SELECT MIN(idx) FROM (
+				SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) +1 AS idx FROM Squadra 
+				HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Squadra)) AS idx_liberi)
+			, '0'));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
 	END IF;
 END$$
 
-CREATE TRIGGER giornata_inserimento BEFORE INSERT ON Giornata
+CREATE TRIGGER TR_INS_Giornata BEFORE INSERT ON Giornata
 FOR EACH ROW
 BEGIN
 	DECLARE warnmsg VARCHAR(255);
+    DECLARE idx_prev_libero INT;
+	DECLARE idx_next_libero INT;
+    DECLARE n_giornate_cur 	INT UNSIGNED;
+    DECLARE n_giornate_exp 	INT UNSIGNED;
     
-	IF NEW.codice != 'G-%' OR NEW.codice IS NULL 
+    
+    # Controllo codice
+	IF NEW.codice NOT LIKE 'G-_%' OR NEW.codice IS NULL 
 	THEN
-        SET NEW.codice = CONCAT('G-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Giornata) + 1, '0'));
+		SET idx_prev_libero = (SELECT MIN(idx) FROM (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) -1 AS idx FROM Giornata HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_prev_libero);
+        SET idx_next_libero = (SELECT MIN(idx) FROM (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) +1 AS idx FROM Giornata HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_next_libero);
+        SET NEW.codice = CONCAT('G-', IF(idx_prev_libero < idx_next_libero, 0, idx_next_libero));
+		# 	(SELECT MIN(idx) FROM (
+# 				SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) +1 AS idx FROM Giornata 
+# 				HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_liberi)
+# 			));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
 	END IF;
     
+    # Controllo vincoli del numero di giornate in una fase
+    SET n_giornate_cur = ((SELECT COUNT(codice) FROM Giornata WHERE fase = NEW.fase) +1);			-- somma 1 per comprendere anche la giornata che sta venendo inserita
     IF (SELECT modalita FROM Fase WHERE codice = NEW.fase) = 'Girone'
-	THEN
-		IF ((SELECT COUNT(codice) AS n_giornate_act FROM Giornata WHERE fase = NEW.fase) +1)  < 		-- somma 1 per comprendere anche la giornata che sta venendo inserita
-	       (((SELECT COUNT(squadra) AS n_giornate_exp FROM Raggruppamento WHERE insieme_squadre = 
-				(SELECT codice FROM Insieme_squadre WHERE fase = NEW.fase)
-			) -1) * (SELECT scontri FROM fase WHERE codice=NEW.fase))																			-- sottratto 1 dato il vincolo #giornate = #squadre -1
-		THEN
-			SET warnmsg = CONCAT("Giornate insufficienti. Occorrono ulteriori ", (n_giornate_exp - n_giornate_act), " giornate per il completamento della fase");
-			SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg;
-        END IF;
-    ELSE
-		IF n_giornate_act < (
-        SELECT FLOOR(LOG2((SELECT COUNT(squadra) FROM Raggrupamento WHERE insieme_squadre = 
-			(SELECT codice FROM Insieme_squadre WHERE fase = NEW.fase)))) * (SELECT scontri FROM fase WHERE codice=NEW.fase)
-		)
-		THEN 
-			SET warnmsg = CONCAT("Giornate insufficienti. Occorrono ulteriori ", (n_giornate_exp - n_giornate_act), " giornate per il completamento della fase");
-			SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg;
-        END IF;
+    THEN SET n_giornate_exp = (
+		((SELECT COUNT(squadra) AS n_giornate_exp FROM Raggruppamento WHERE insieme_squadre = 
+			(SELECT codice FROM Insieme_squadre WHERE fase = NEW.fase)
+		) -1) * (SELECT scontri FROM Fase WHERE codice=NEW.fase)									-- sottratto 1 dato il vincolo #giornate = #squadre -1
+	);
+	ELSE SET n_giornate_exp = (																		-- Caso: Fase.modalita = 'Eliminazione'
+		SELECT FLOOR(LOG2((SELECT COUNT(squadra) FROM Raggruppamento WHERE insieme_squadre = 
+			(SELECT codice FROM Insieme_squadre WHERE fase = NEW.fase)))) * (SELECT scontri FROM Fase WHERE codice=NEW.fase)
+	);
 	END IF;
+	IF (n_giornate_cur < n_giornate_exp)																-- Se il numero di giornate presenti (current) è inferiore al numero di giornate attese (expected) viene segnalato tramite warning
+	THEN
+		SET warnmsg = CONCAT("Giornate insufficienti. Occorrono ulteriori ", (n_giornate_exp - n_giornate_cur), " giornate per il completamento della fase");
+		SIGNAL SQLSTATE '01001' SET MESSAGE_TEXT = warnmsg;
+    END IF;
 END$$
 
-CREATE TRIGGER giocatore_inserimento BEFORE INSERT ON Giocatore
+CREATE TRIGGER TR_INS_Giocatore BEFORE INSERT ON Giocatore
 FOR EACH ROW
 BEGIN
 	DECLARE warnmsg VARCHAR(255);
@@ -345,7 +375,7 @@ BEGIN
 	END IF;
 END$$
 
-CREATE TRIGGER arbitro_inserimento BEFORE INSERT ON Arbitro
+CREATE TRIGGER TR_INS_Arbitro BEFORE INSERT ON Arbitro
 FOR EACH ROW
 BEGIN
 	DECLARE warnmsg VARCHAR(255);
@@ -357,13 +387,17 @@ BEGIN
 	END IF;
 END$$
 
-CREATE TRIGGER partita_inserimento BEFORE INSERT ON Partita
+CREATE TRIGGER TR_INS_Partita BEFORE INSERT ON Partita
 FOR EACH ROW
 BEGIN
 	DECLARE warnmsg VARCHAR(255);
-	IF NEW.codice != 'P-%' OR NEW.codice IS NULL 
+	IF NEW.codice NOT LIKE 'P-_%' OR NEW.codice IS NULL 
 	THEN
-		SET NEW.codice = CONCAT('P-', COALESCE((SELECT MIN(CAST(SUBSTRING(codice FROM 3) AS DECIMAL)) FROM Partita) + 1, '0'));
+		SET NEW.codice = CONCAT('P-', COALESCE(
+			(SELECT MIN(idx) FROM (
+				SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) +1 AS idx FROM Partita 
+				HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Partita)) AS idx_liberi)
+			, '0'));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
 	END IF;
@@ -388,10 +422,13 @@ INSERT INTO Campo (nome, telefono, comune, via, civico)
 VALUES ('Campetto', '055055055', 'Firenze', 'via senza fine', 8);
 
 INSERT INTO Squadra(nome, tipologia, genere, campo)
-VALUES ('Ovo',	'5', 'N', 'C-0'),
-	   ('Sodo',	'5', 'N', 'C-0');
+VALUES ('Ovo',		'5', 'N', 'C-0'),
+	   ('Sodo',		'5', 'N', 'C-0'),
+       ('Piedi',	'5', 'N', 'C-0'),
+       ('Nudi',		'5', 'N', 'C-0'),
+       ('Pippe',	'5', 'N', 'C-0'),
+       ('Scarsi', 	'5', 'N', 'C-0');
 
-            
 INSERT INTO Giocatore (tessera, nome, cognome, data, genere)
 VALUES  (NULL, 'Pippo', 'deVez', '2021-10-15', 'M'),
 		(NULL, 'Luca', 'Micaio', '2022-02-27', 'N');
@@ -401,17 +438,43 @@ VALUES ('F-0', NULL);
 
 INSERT INTO Raggruppamento (insieme_squadre, squadra)
 VALUES ('I-0','S-0'),
-	   ('I-0','S-1');
+	   ('I-0','S-1'),
+       ('I-0','S-2'),
+	   ('I-0','S-3'),
+       ('I-0','S-4'),
+       ('I-0','S-5');
+       
+INSERT INTO Rosa (squadra, giocatore, numero_maglia)
+VALUES ('S-0', 0, 1),
+	   ('S-1', 1, 2);
+       
+# SELECT (SELECT COUNT(codice) FROM Giornata WHERE fase = 'F-0' )+1 AS cur;
+# SELECT(SELECT FLOOR(LOG2((SELECT COUNT(squadra) FROM Raggruppamento WHERE insieme_squadre = 
+# 		(SELECT codice FROM Insieme_squadre WHERE fase = 'F-0')))) * (SELECT scontri FROM Fase WHERE codice='F-0')
+# 	) AS exp;
+# INSERT INTO Giornata (fase, numero)
+# VALUES ('F-0', 1);
+
+LOAD DATA LOCAL INFILE './Popolamento/Giornata.csv'
+INTO TABLE Giornata
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+IGNORE 1 LINES
+(codice, fase, numero);
 
 /*
  * SEZIONE DEDICATA ALLE INTERROGAZIONI
  */
  
- # SELECT * FROM Torneo ORDER BY CAST(SUBSTRING(codice FROM 3) AS DECIMAL);
- # SELECT * FROM Giocatore;
- # SELECT * FROM Fase;
- # SELECT * FROM Squadra;
- # SELECT * FROM Insieme_squadre;
- # SELECT * FROM Raggruppamento;
- # SELECT * FROM tornei_terminati;
+# SELECT * FROM Torneo ORDER BY CAST(SUBSTRING(codice FROM 3) AS DECIMAL);
+# SELECT * FROM Giocatore;
+# SELECT * FROM Fase;
+# SELECT * FROM Squadra;
+# SELECT * FROM Insieme_squadre;
+# SELECT * FROM Raggruppamento;
+# SELECT * FROM tornei_terminati;
+# SELECT * FROM Giornata;
+
+SELECT * FROM INTEGER;
+
  

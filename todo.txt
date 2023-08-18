@@ -1,17 +1,8 @@
 Terminare ALTRI VINCOLI
 Parte Implementazione MySQL: definire e descrivere procedure, trigger ecc
-Altri vincoli: 	- squadra casa <> squadra trasferta
-		- squadre diverse nella stessa fase
-		- tessera unica tra giocatori e arbitri
-		- genere torneo = g squadra <=> g giocatore
-		- gol casa e gol ospite = somma delle statistica partita
-		- numero giornate giorone == numero squadre -1 
-	- numero giornate elimin diretta = sum(log_2(num squadre) x numero scontri) !!!VERAMENTE DIFFICILE!!!
-		- numro partite per giornata == numero squadre /2
 
 
 Commentare script (anche con un minimo di analisi delle prestazioni)
-Controllare azioni delle foreign keys
 TRIGGERS:- inserimenti
 	- update
 Terminare file per il POPOLAMENTO: inserimenti a mano, inserimenti tramite .in e .CSV
@@ -45,3 +36,17 @@ ESEMPI DI FUNZIONAMENTO PER OGNI PROCEDURA/VISTA/TRIGGER/FUNCTION
 
 
 Un progetto di gruppo da consegnare tramite la piattaforma Moodle in un archivio .zip o .rar. Il progetto consiste nella realizzazione di una base di dati a partire dalla fase di progettazione concettuale, cui dovrà seguire la fase di progettazione logica e quindi di realizzazione in MySQL. Il contesto della basi di dati è a scelta. I gruppi dovranno redigere una relazione in pdf (massimo 15 pagine) con la descrizione delle fasi di progettazione della basi di dati e uno script sql con la sua realizzazione in MySQL, organizzato secondo i template disponibili sul sito del corso. Lo script dovrà prevedere una parte di istruzioni DDL per la creazione e il popolamento della base di dati, con vincoli di integrità, e una parte di istruzioni DML per l'interrogazione della base di dati tramite istruzioni select e l'uso di procedure e funzioni. Dovranno anche essere utilizzate viste e trigger per mostrare la gestione di ulteriori vincoli sulla base di dati. Il progetto sarà valutato tenendo conto della forma e dei contenuti della relazione nonché degli aspetti DDL e DML dello script e peserà per 3 cfu sulla valutazione finale. Il progetto deve essere consegnato prima dell'orale, anche in un appello precedente a quello in cui viene fatto l'esame orale e quando superato vale per tutto l'anno accademico. 
+
+
+
+DONE
+Altri vincoli: 	- squadra casa <> squadra trasferta
+		- squadre diverse nella stessa fase
+		- tessera unica tra giocatori e arbitri
+		- genere torneo = g squadra <=> g giocatore
+		- gol casa e gol ospite = somma delle statistica partita
+		- numero giornate giorone == numero squadre -1 
+		- numero giornate elimin diretta = sum(log_2(num squadre) x numero scontri) !!!VERAMENTE DIFFICILE!!!
+		- numro partite per giornata == numero squadre /2
+
+Controllare azioni delle foreign keys
