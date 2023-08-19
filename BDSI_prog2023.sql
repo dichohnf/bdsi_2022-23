@@ -549,7 +549,7 @@ SET codice_squadra = (SELECT squadra FROM Giocatore G WHERE NEW.giocatore = G.te
 
 IF nome_squadra IN (SELECT squadra_casa FROM Partita P WHERE P.codice = NEW.partita)
 	THEN SET gol_squadra = (SELECT gol_casa FROM Partita P WHERE NEW.partita = P.codice);
-ELSE IF codice_squadra IN (SELECT squadra_ospite FROM Partita P WHERE P.codice = NEW.partita)
+ELSEIF codice_squadra IN (SELECT squadra_ospite FROM Partita P WHERE P.codice = NEW.partita)
 	THEN SET gol_squadra = (SELECT gol_ospite FROM Partita P WHERE NEW.partita = P.codice);
 END IF;
 
