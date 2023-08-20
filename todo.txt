@@ -1,3 +1,6 @@
+CORREGGERE PROGETTO: Giornate in relazione con Insieme squadre e non con Fase, altrimenti si limita il numeoro di squadre nei giornoni ad essere sempre uguale per ogni girone (Numero di giornate sempre uguale per Insieme di squadre di una fase)
+
+
 Terminare ALTRI VINCOLI
 Parte Implementazione MySQL: definire e descrivere procedure, trigger ecc
 

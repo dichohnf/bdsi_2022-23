@@ -235,6 +235,11 @@ NATURAL JOIN
  * SEZIONE DEDICATA AI TRIGGER
  * La sezione successiva definisce i trigger per il controllo 
  * dei vincoli non esprimibili tramite i costrutti del linguaggio.
+ * Per ogni tabelle è stato preferito mantenere un trigger unico
+ * al fine di agevolare il lettore. Questo rendere lo script meno
+ * frastagliato ma costringe ad una struttura interna non sempre immediata 
+ * (esempio, prima vengono inserite tutte le dichiarazioni utili per 
+ * tutti i controlli da eswguire nel trigger poi il resto).
  * I trigger relativi agli inserimenti (i primi della lista) 
  * condividono una sezione per il controllo del formato del codice.
  * Non è stato possibile implementare una procedura unica per tutti
@@ -360,17 +365,17 @@ BEGIN
     DECLARE n_giornate_cur 	INT UNSIGNED;
     DECLARE n_giornate_exp 	INT UNSIGNED;
 
-    # Controllo codice
+    -- Controllo formato codice
 	IF NEW.codice NOT LIKE 'G-_%' OR NEW.codice IS NULL 
 	THEN
-		SELECT MIN(idx) INTO idx_prev_libero FROM (SELECT CAST(SUBSTRING(codice FROM 3) AS DECIMAL) -1 AS idx FROM Giornata HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_libero_prev;
-        SELECT MIN(idx) INTO idx_next_libero FROM (SELECT CAST(SUBSTRING(codice FROM 3) AS DECIMAL) +1 AS idx FROM Giornata HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_libero_next;
+		SELECT MIN(idx) INTO idx_prev_libero FROM (SELECT (CAST(SUBSTRING(codice FROM 3) AS DECIMAL) -1) AS idx FROM Giornata WHERE idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_libero_prev;
+        SELECT MIN(idx) INTO idx_next_libero FROM (SELECT (CAST(SUBSTRING(codice FROM 3) AS DECIMAL) +1) AS idx FROM Giornata WHERE idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_libero_next;
         SET NEW.codice = CONCAT('G-', IF((idx_prev_libero < 0) OR (idx_next_libero <= idx_prev_libero ), idx_next_libero, 0));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
         SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg;
 	END IF;
         
-    # Controllo vincoli del numero di giornate in una fase
+    -- Controllo vincoli del numero di giornate in una fase
     SET n_giornate_cur = ((SELECT COUNT(codice) FROM Giornata WHERE fase = NEW.fase) +1);			-- somma 1 per comprendere anche la giornata che sta venendo inserita
     IF (SELECT modalita FROM Fase WHERE codice = NEW.fase) = 'Girone'
     THEN SET n_giornate_exp = (
@@ -389,6 +394,15 @@ BEGIN
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg;
     END IF;
 END$$
+
+/*
+ * Inesrimenti di tesserati (Giocatore e Arbitro).
+ * Le tessere sono assegnate seguendo l'ordine cronologico. Le prime tessere
+ * possiedono numeri bassi. Le tessere inferiori non assegnate dovranno 
+ * essere assegnate manualmente, per cui si suggerisce di non specificare
+ * tessere e lasciare il trigger genearle, a meno che non si desideri mantenere
+ * delle tessere riservate.
+ */
 
 CREATE TRIGGER TR_INS_Giocatore BEFORE INSERT ON Giocatore
 FOR EACH ROW
@@ -432,12 +446,6 @@ BEGIN
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
 	END IF;
 END$$
-
-/*
- * Inesrimenti di tesserati (Giocatore e Arbitro).
- * Le tessere sono assegnate seguendo l'ordine cronologico. Le prime tessere
- * possiedono numeri bassi.
- */
 
 CREATE TRIGGER TR_INS_Partita BEFORE INSERT ON Partita
 FOR EACH ROW
@@ -546,6 +554,12 @@ VALUES ('G-0', '2023-08-19', '18:06', 'S-0', 'S-1', '2', 'C-0', 1, 0);
 INSERT INTO Statistiche (partita, giocatore, gol, assist, ammonizioni )
 VALUES ('P-0', '0', 1, 1, 0);
 
+
+INSERT INTO Giornata (codice, fase, numero)
+VALUES # ("G-100","F-0",1),
+# (NULL,"F-0",2),
+# (NULL,"F-0",3),
+(NULL,"F-0",4);
 /*
  * SEZIONE DEDICATA ALLE INTERROGAZIONI
  */
@@ -559,7 +573,4 @@ VALUES ('P-0', '0', 1, 1, 0);
 # SELECT * FROM tornei_terminati;
 # SELECT * FROM Giornata;
 # SELECT * FROM Arbitro;
-
-
-
 
