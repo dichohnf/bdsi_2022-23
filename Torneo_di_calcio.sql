@@ -175,10 +175,10 @@ CREATE TABLE IF NOT EXISTS Partita(
 CREATE TABLE IF NOT EXISTS Statistiche(
 	giocatore			SMALLINT UNSIGNED NOT NULL,
     partita				VARCHAR(9) NOT NULL,
-    gol					TINYINT UNSIGNED DEFAULT 0,
-    assist				TINYINT UNSIGNED DEFAULT 0,
-	ammonizioni			TINYINT UNSIGNED DEFAULT 0,
-	espulsione_giornate	TINYINT UNSIGNED DEFAULT 0,
+    gol					TINYINT UNSIGNED DEFAULT 0 NOT NULL,
+    assist				TINYINT UNSIGNED DEFAULT 0 NOT NULL,
+	ammonizioni			TINYINT UNSIGNED DEFAULT 0 NOT NULL,
+	espulsione_giornate	TINYINT UNSIGNED DEFAULT 0 NOT NULL,
     
     PRIMARY KEY (giocatore, partita),
     FOREIGN KEY(giocatore)
@@ -200,6 +200,7 @@ CREATE TABLE IF NOT EXISTS Statistiche(
  * La successiva vista rappresenta l'inisieme di tutti i tesseramenti.
  * Occorre per operare la creazione di una nuova tessera.
  */
+
 CREATE VIEW tesseramenti
 (tessera, nome, cognome, data, genere) AS 
 (SELECT * FROM Giocatore UNION SELECT * FROM Arbitro);
@@ -209,13 +210,26 @@ CREATE VIEW tesseramenti
  * Per associare ad un torneo l'attributo di "terminato" viene preso come
  * discriminante la terminazione di tutte le partite del torneo. 
  */
- CREATE VIEW tornei_terminati
- (codice, nome, edizione, genere, tipologia) AS
- (SELECT * FROM Torneo WHERE codice IN
+CREATE VIEW tornei_terminati
+(codice, nome, edizione, genere, tipologia) AS
+(SELECT * FROM Torneo WHERE codice IN
 	(SELECT torneo FROM Fase WHERE codice IN 
 		(SELECT fase FROM Giornata WHERE 
 			codice IN (SELECT giornata FROM Partita) AND													-- Giornata con almeno una partita definita
             codice NOT IN (SELECT giornata FROM Partita WHERE gol_casa IS NULL OR gol_ospite IS NULL))));	-- Giornata con nessuna partita (NOT IN) non terminata (IS NULL) 
+            
+/*
+ * La successiva vista rappresenta l'insieme dei codici delle squadre partecipanti
+ * associati ai tornei a cui partecipano e in quali fasi dei suddetti tornei.
+ * Questa vista occorre per la verivica del vincolo di partecipazione singola
+ * di una squadra ad una fase
+ */
+CREATE VIEW squadra_iscrizioni
+(torneo, fase, insieme, squadra) AS
+SELECT * FROM 
+(SELECT F.torneo AS toreno, F.codice AS fase, I.codice AS insieme FROM Fase F, Insieme_squadre I WHERE F.codice = I.fase) AS TFI 
+NATURAL JOIN 
+(SELECT R.insieme_squadre AS insieme, S.codice AS squadra FROM Raggruppamento R, Squadra S WHERE R.squadra = S.codice) AS RS;
     
 /*
  * SEZIONE DEDICATA AI TRIGGER
@@ -317,6 +331,26 @@ BEGIN
 	END IF;
 END$$
 
+CREATE TRIGGER TR_INS_Ragguppamento BEFORE INSERT ON Raggruppamento
+FOR EACH ROW
+BEGIN
+	DECLARE genere_squadra ENUM('M','F','N');
+    DECLARE genere_torneo ENUM('M','F','N');
+    
+    -- Controllo genere concordante tra Squadra e Torneo
+	SELECT Squadra.genere INTO genere_squadra FROM Squadra WHERE Squadra.codice = NEW.squadra;
+    SELECT T.genere INTO genere_torneo FROM Torneo T WHERE T.codice = (SELECT F.torneo FROM Fase F WHERE F.codice = (SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.Insieme_squadre));
+    IF genere_squadra <> genere_torneo
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='1000';
+	END IF;
+    
+    -- Controllo che la squadra non stia gia partecipando alla fase
+    IF (NEW.squadra IN (SELECT SI.squadra FROM squadra_iscrizioni AS SI WHERE SI.fase IN (SELECT I_s.fase FROM Insieme_squadre I_s WHERE I_s.codice = NEW.insieme_squadre)))
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Squadra già partecipante alla fase.', MYSQL_ERRNO='1004';
+    END IF;
+END $$
+
+
 CREATE TRIGGER TR_INS_Giornata BEFORE INSERT ON Giornata
 FOR EACH ROW
 BEGIN
@@ -340,7 +374,7 @@ BEGIN
     SET n_giornate_cur = ((SELECT COUNT(codice) FROM Giornata WHERE fase = NEW.fase) +1);			-- somma 1 per comprendere anche la giornata che sta venendo inserita
     IF (SELECT modalita FROM Fase WHERE codice = NEW.fase) = 'Girone'
     THEN SET n_giornate_exp = (
-		((SELECT COUNT(squadra) AS n_giornate_exp FROM Raggruppamento WHERE insieme_squadre = 
+		((SELECT COUNT(squadra) FROM Raggruppamento WHERE insieme_squadre = 
 			(SELECT codice FROM Insieme_squadre WHERE fase = NEW.fase)
 		) -1) * (SELECT scontri FROM Fase WHERE codice=NEW.fase)									-- sottratto 1 dato il vincolo #giornate = #squadre -1
 	);
@@ -352,7 +386,7 @@ BEGIN
 	IF (n_giornate_cur < n_giornate_exp)																-- Se il numero di giornate presenti (current) è inferiore al numero di giornate attese (expected) viene segnalato tramite warning
 	THEN
 		SET warnmsg = CONCAT("Giornate insufficienti. Occorrono ulteriori ", (n_giornate_exp - n_giornate_cur), " giornate per il completamento della fase");
-		SIGNAL SQLSTATE '01001' SET MESSAGE_TEXT = warnmsg;
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg;
     END IF;
 END$$
 
@@ -368,6 +402,25 @@ BEGIN
 	END IF;
 END$$
 
+CREATE TRIGGER TR_INS_Rosa BEFORE INSERT ON Rosa
+FOR EACH ROW
+BEGIN
+	DECLARE genere_squadra ENUM('M','F','N');
+    DECLARE genere_giocatore ENUM('M','F','N');
+    
+	-- Controllo numero_maglia appartenente al dominio 
+    IF NEW.numero_maglia > 99		-- Data la tipologia UNSIGNED del dato non occorre il controllo: (... < 0)
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Numero maglia non accettabile. I numeri di maglia devono essere interni compresi tra 0 e 99 inclusi.', MYSQL_ERRNO='1002';
+	END IF;
+    
+	-- Controllo genere compatibile tra Giocatore e Squadra
+	SELECT Squadra.genere INTO genere_squadra FROM Squadra WHERE Squadra.codice = NEW.squadra;
+    SELECT Giocatore.genere INTO genere_giocatore FROM Giocatore WHERE Giocatore.tessera = NEW.Giocatore;
+    IF genere_squadra <> 'N' AND genere_squadra <> genere_giocatore		-- Squadre miste accettano giocatori di ogni genere
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='1000';
+	END IF;
+END $$
+
 CREATE TRIGGER TR_INS_Arbitro BEFORE INSERT ON Arbitro
 FOR EACH ROW
 BEGIN
@@ -381,6 +434,7 @@ BEGIN
 END$$
 
 /*
+ * Inesrimenti di tesserati (Giocatore e Arbitro).
  * Le tessere sono assegnate seguendo l'ordine cronologico. Le prime tessere
  * possiedono numeri bassi.
  */
@@ -391,6 +445,12 @@ BEGIN
 	DECLARE idx_prev_libero INT;
     DECLARE idx_next_libero INT;
 	DECLARE warnmsg VARCHAR(127);
+    
+	-- Controllo vincolo: squadre giocanti diverse
+    IF NEW.squadra_casa = NEW.squadra_ospite
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Squadre uguali. Le partite devono essere formate da due squadre distinte.", MYSQL_ERRNO=1003;
+    END IF;
+    
     -- Controllo formato codice
 	IF NEW.codice NOT LIKE 'P-_%' OR NEW.codice IS NULL 
 	THEN
@@ -400,10 +460,8 @@ BEGIN
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
 	END IF;
-    -- Controllo vincolo: squadre giocanti diverse
-    IF NEW.squadra_casa = NEW.squadra_ospite
-    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Squadre uguali. Le partite devono essere formate da due squadre distinte.", MYSQL_ERRNO=1000;
-    END IF;
+	
+    
 END$$
 
 CREATE TRIGGER TR_INS_Statistiche BEFORE INSERT ON Statistiche
@@ -426,11 +484,13 @@ DELIMITER ;
 # Inserimento manuale da script (tabella Torneo)
 
 INSERT INTO Torneo(nome, tipologia, genere, edizione)
-VALUES	('Firenze Inverno','7','N',1),
-		('Firenze Estate','5','M',1);
+VALUES	('Firenze Inverno',	'7','N',1),
+		('Firenze Estate',	'5','N',1);
             
 INSERT INTO Fase(torneo, nome, modalita, scontri)
-VALUES ('T-0', 'Eliminazione unico', 'Eliminazione', 1);
+VALUES ('T-0', 'Eliminazione unico', 'Eliminazione', 1),
+	   ('T-0', 'Eliminazione bis', 'Eliminazione', 1),
+	   ('T-1', 'Eliminazione unico', 'Eliminazione', 1);
 
 INSERT INTO Campo (nome, telefono, comune, via, civico)
 VALUES ('Campetto', '055055055', 'Firenze', 'via senza fine', 8);
@@ -452,7 +512,9 @@ VALUES  (NULL, 'Pippo', 'deVez', '2021-10-15', 'M'),
 		(NULL, 'Luca', 'Micaio', '2022-02-27', 'N');
         
 INSERT INTO Insieme_squadre (fase, nome)
-VALUES ('F-0', NULL);
+VALUES ('F-0', NULL),
+	   ('F-0', NULL),
+       ('F-2', NULL);
 
 INSERT INTO Raggruppamento (insieme_squadre, squadra)
 VALUES ('I-0','S-0'),
@@ -460,10 +522,14 @@ VALUES ('I-0','S-0'),
        ('I-0','S-2'),
 	   ('I-0','S-3'),
        ('I-0','S-4'),
-       ('I-0','S-5');
+       ('I-0','S-5'),
+       ('I-1','S-4'),
+       ('I-1','S-5'),
+       ('I-2','S-4'),
+       ('I-2','S-5');
        
 INSERT INTO Rosa (squadra, giocatore, numero_maglia)
-VALUES ('S-0', 0, 1),
+VALUES ('S-0', 0, 0),
 	   ('S-1', 1, 2);
        
 LOAD DATA LOCAL INFILE './Popolamento/Giornata.csv'
@@ -476,8 +542,9 @@ IGNORE 1 LINES
 INSERT INTO Partita (giornata, giorno, ora, squadra_casa, squadra_ospite, arbitro, campo, gol_casa, gol_ospite)
 VALUES ('G-0', '2023-08-19', '18:06', 'S-0', 'S-1', '2', 'C-0', 1, 0);
 
-INSERT INTO Statistiche (partita, giocatore, gol, assist, ammonizioni , espulsione_giornate)
-VALUES ('P-0', '0', 1, 1, NULL, NULL);
+
+INSERT INTO Statistiche (partita, giocatore, gol, assist, ammonizioni )
+VALUES ('P-0', '0', 1, 1, 0);
 
 /*
  * SEZIONE DEDICATA ALLE INTERROGAZIONI
@@ -491,9 +558,8 @@ VALUES ('P-0', '0', 1, 1, NULL, NULL);
 # SELECT * FROM Raggruppamento;
 # SELECT * FROM tornei_terminati;
 # SELECT * FROM Giornata;
-# SELECT * from tesseramenti;
 # SELECT * FROM Arbitro;
 
 
- 
- 
+
+
