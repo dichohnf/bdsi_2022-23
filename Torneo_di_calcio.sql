@@ -88,13 +88,13 @@ CREATE TABLE IF NOT EXISTS Raggruppamento(
 );
 
 CREATE TABLE IF NOT EXISTS Giornata(
-    codice		VARCHAR(7) PRIMARY KEY,		-- G-xxxxx
-	fase		VARCHAR(6) NOT NULL,
-	numero		TINYINT UNSIGNED NOT NULL,
+    codice			VARCHAR(7) PRIMARY KEY,		-- G-xxxxx
+	insieme_squadre	VARCHAR(7) NOT NULL,
+	numero			TINYINT UNSIGNED NOT NULL,
     
-    UNIQUE (fase, numero),
-    FOREIGN KEY (fase)
-		REFERENCES Fase(codice)
+    UNIQUE (insieme_squadre, numero),
+    FOREIGN KEY (insieme_squadre)
+		REFERENCES Insieme_squadre(codice)
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
@@ -214,9 +214,10 @@ CREATE VIEW tornei_terminati
 (codice, nome, edizione, genere, tipologia) AS
 (SELECT * FROM Torneo WHERE codice IN
 	(SELECT torneo FROM Fase WHERE codice IN 
-		(SELECT fase FROM Giornata WHERE 
+		(SELECT fase FROM Insieme_squadre WHERE codice IN 
+			(SELECT insieme_squadre FROM Giornata WHERE
 			codice IN (SELECT giornata FROM Partita) AND													-- Giornata con almeno una partita definita
-            codice NOT IN (SELECT giornata FROM Partita WHERE gol_casa IS NULL OR gol_ospite IS NULL))));	-- Giornata con nessuna partita (NOT IN) non terminata (IS NULL) 
+            codice NOT IN (SELECT giornata FROM Partita WHERE gol_casa IS NULL OR gol_ospite IS NULL)))));	-- Giornata con nessuna partita (NOT IN) non terminata (IS NULL) 
             
 /*
  * La successiva vista rappresenta l'insieme dei codici delle squadre partecipanti
@@ -226,10 +227,10 @@ CREATE VIEW tornei_terminati
  */
 CREATE VIEW squadra_iscrizioni
 (torneo, fase, insieme, squadra) AS
-SELECT * FROM 
-(SELECT F.torneo AS toreno, F.codice AS fase, I.codice AS insieme FROM Fase F, Insieme_squadre I WHERE F.codice = I.fase) AS TFI 
+SELECT torneo, fase, insieme, squadra FROM 
+(SELECT F.torneo AS torneo, F.codice AS fase, I.codice AS insieme FROM Fase F, Insieme_squadre I WHERE F.codice = I.fase) AS TFI 
 NATURAL JOIN 
-(SELECT R.insieme_squadre AS insieme, S.codice AS squadra FROM Raggruppamento R, Squadra S WHERE R.squadra = S.codice) AS RS;
+(SELECT insieme_squadre AS insieme, squadra FROM Raggruppamento) AS R;
     
 /*
  * SEZIONE DEDICATA AI TRIGGER
@@ -344,13 +345,17 @@ BEGIN
     
     -- Controllo genere concordante tra Squadra e Torneo
 	SELECT Squadra.genere INTO genere_squadra FROM Squadra WHERE Squadra.codice = NEW.squadra;
-    SELECT T.genere INTO genere_torneo FROM Torneo T WHERE T.codice = (SELECT F.torneo FROM Fase F WHERE F.codice = (SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.Insieme_squadre));
+    SELECT T.genere INTO genere_torneo FROM Torneo T WHERE T.codice = 
+		(SELECT F.torneo FROM Fase F WHERE F.codice = 
+			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.Insieme_squadre));
     IF genere_squadra <> genere_torneo
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='1000';
 	END IF;
     
     -- Controllo che la squadra non stia gia partecipando alla fase
-    IF (NEW.squadra IN (SELECT SI.squadra FROM squadra_iscrizioni AS SI WHERE SI.fase IN (SELECT I_s.fase FROM Insieme_squadre I_s WHERE I_s.codice = NEW.insieme_squadre)))
+    IF (NEW.squadra IN 
+		(SELECT isc.squadra FROM squadra_iscrizioni AS isc WHERE isc.fase IN 
+			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.insieme_squadre)))
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Squadra già partecipante alla fase.', MYSQL_ERRNO='1004';
     END IF;
 END $$
@@ -368,27 +373,28 @@ BEGIN
     -- Controllo formato codice
 	IF NEW.codice NOT LIKE 'G-_%' OR NEW.codice IS NULL 
 	THEN
-		SELECT MIN(idx) INTO idx_prev_libero FROM (SELECT (CAST(SUBSTRING(codice FROM 3) AS DECIMAL) -1) AS idx FROM Giornata WHERE idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_libero_prev;
-        SELECT MIN(idx) INTO idx_next_libero FROM (SELECT (CAST(SUBSTRING(codice FROM 3) AS DECIMAL) +1) AS idx FROM Giornata WHERE idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_libero_next;
+		SELECT MIN(idx) INTO idx_prev_libero FROM (SELECT (CAST(SUBSTRING(codice FROM 3) AS DECIMAL) -1) AS idx FROM Giornata HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_libero_prev;
+        SELECT MIN(idx) INTO idx_next_libero FROM (SELECT (CAST(SUBSTRING(codice FROM 3) AS DECIMAL) +1) AS idx FROM Giornata HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_libero_next;
         SET NEW.codice = CONCAT('G-', IF((idx_prev_libero < 0) OR (idx_next_libero <= idx_prev_libero ), idx_next_libero, 0));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
         SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg;
 	END IF;
         
-    -- Controllo vincoli del numero di giornate in una fase
-    SET n_giornate_cur = ((SELECT COUNT(codice) FROM Giornata WHERE fase = NEW.fase) +1);			-- somma 1 per comprendere anche la giornata che sta venendo inserita
-    IF (SELECT modalita FROM Fase WHERE codice = NEW.fase) = 'Girone'
+    -- Controllo vincoli del numero di giornate a seconda della modalita della fase
+    SET n_giornate_cur = ((SELECT COUNT(codice) FROM Giornata WHERE insieme_squadre = NEW.insieme_squadre) +1);		-- somma 1 per comprendere anche la giornata che sta venendo inserita
+    IF (SELECT F.modalita FROM Fase F WHERE F.codice = 
+		(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.insieme_squadre)) 
+	= 'Girone'
     THEN SET n_giornate_exp = (
-		((SELECT COUNT(squadra) FROM Raggruppamento WHERE insieme_squadre = 
-			(SELECT codice FROM Insieme_squadre WHERE fase = NEW.fase)
-		) -1) * (SELECT scontri FROM Fase WHERE codice=NEW.fase)									-- sottratto 1 dato il vincolo #giornate = #squadre -1
-	);
-	ELSE SET n_giornate_exp = (																		-- Caso: Fase.modalita = 'Eliminazione'
-		SELECT FLOOR(LOG2((SELECT COUNT(squadra) FROM Raggruppamento WHERE insieme_squadre = 
-			(SELECT codice FROM Insieme_squadre WHERE fase = NEW.fase)))) * (SELECT scontri FROM Fase WHERE codice=NEW.fase)
-	);
+		((SELECT COUNT(squadra) FROM Raggruppamento WHERE insieme_squadre = NEW.insieme_squadre) -1) 				-- sottratto 1 dato il vincolo #giornate = #squadre -1
+        * (SELECT F.scontri FROM Fase F WHERE F.codice =
+			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.insieme_squadre)));
+	ELSE SET n_giornate_exp = (																						-- Caso: Fase.modalita = 'Eliminazione'
+		SELECT FLOOR(LOG2((SELECT COUNT(squadra) FROM Raggruppamento WHERE insieme_squadre = NEW.insieme_squadre)))
+        * (SELECT F.scontri FROM Fase F WHERE F.codice =
+			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.insieme_squadre)));
 	END IF;
-	IF (n_giornate_cur < n_giornate_exp)																-- Se il numero di giornate presenti (current) è inferiore al numero di giornate attese (expected) viene segnalato tramite warning
+	IF (n_giornate_cur < n_giornate_exp)																			-- se il numero di giornate presenti (current) è inferiore al numero di giornate attese (expected) viene segnalato tramite warning
 	THEN
 		SET warnmsg = CONCAT("Giornate insufficienti. Occorrono ulteriori ", (n_giornate_exp - n_giornate_cur), " giornate per il completamento della fase");
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg;
@@ -475,11 +481,29 @@ END$$
 CREATE TRIGGER TR_INS_Statistiche BEFORE INSERT ON Statistiche
 FOR EACH ROW
 BEGIN 
-	DECLARE errmsg VARCHAR(127);
-    #Controllo ammonizioni appartenenti a {0,1,2}
+	DECLARE errmsg 					VARCHAR(127);
+    DECLARE squadra_casa			VARCHAR(8);
+    DECLARE somma_gol 				TINYINT UNSIGNED;
+    DECLARE gol_squadra_giocatore 	TINYINT UNSIGNED;
+    DECLARE warnmsg					VARCHAR(127);
+    
+
+    -- Controllo ammonizioni appartenenti a {0,1,2}
     IF NEW.ammonizioni NOT IN (0,1,2)
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Numero ammonizioni fuori dal dominio {0, 1, 2}.", MYSQL_ERRNO=1001;
     END IF;
+    
+    -- Controllo che somma dei gol corrisponda a punteggio partita
+	SELECT SUM(gol) INTO somma_gol FROM Statistiche WHERE partita = NEW.partita AND giocatore IN 
+		(SELECT DISTINCT giocatore FROM Rosa WHERE squadra IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore));
+	SELECT squadra_casa INTO squadra_casa FROM Partita WHERE codice = NEW.partita;
+	SELECT IF(squadra_casa IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore), gol_casa, gol_ospite) 	-- la condizione che la squadra di casa sia una di quelle del giocatore è sufficiente dato il vincolo di singola partecipazoine del giocatore ad un insieme di squadra 
+		INTO gol_squadra_giocatore FROM Partita WHERE codice = NEW.partita;
+    IF somma_gol <> gol_squadra_giocatore
+    THEN
+		SET warnmsg = CONCAT("Punteggio inconsistente. Il punteggio della partita non corrisponde alla somma dei gol: (somma gol) - (gol squadra) = ", (somma_gol - gol_squadra_giocatore));
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO='1005';
+	END IF;
 END $$
 
 DELIMITER ;
@@ -491,11 +515,11 @@ DELIMITER ;
 
 # Inserimento manuale da script (tabella Torneo)
 
-INSERT INTO Torneo(nome, tipologia, genere, edizione)
+INSERT INTO Torneo (nome, tipologia, genere, edizione)
 VALUES	('Firenze Inverno',	'7','N',1),
 		('Firenze Estate',	'5','N',1);
             
-INSERT INTO Fase(torneo, nome, modalita, scontri)
+INSERT INTO Fase (torneo, nome, modalita, scontri)
 VALUES ('T-0', 'Eliminazione unico', 'Eliminazione', 1),
 	   ('T-0', 'Eliminazione bis', 'Eliminazione', 1),
 	   ('T-1', 'Eliminazione unico', 'Eliminazione', 1);
@@ -503,7 +527,7 @@ VALUES ('T-0', 'Eliminazione unico', 'Eliminazione', 1),
 INSERT INTO Campo (nome, telefono, comune, via, civico)
 VALUES ('Campetto', '055055055', 'Firenze', 'via senza fine', 8);
 
-INSERT INTO Squadra(nome, tipologia, genere, campo)
+INSERT INTO Squadra (nome, tipologia, genere, campo)
 VALUES ('Ovo',		'5', 'N', 'C-0'),
 	   ('Sodo',		'5', 'N', 'C-0'),
        ('Piedi',	'5', 'N', 'C-0'),
@@ -520,8 +544,8 @@ VALUES  (NULL, 'Pippo', 'deVez', '2021-10-15', 'M'),
 		(NULL, 'Luca', 'Micaio', '2022-02-27', 'N');
         
 INSERT INTO Insieme_squadre (fase, nome)
-VALUES ('F-0', NULL),
-	   ('F-0', NULL),
+VALUES ('F-0', 'A'),
+	   ('F-0', 'B'),
        ('F-2', NULL);
 
 INSERT INTO Raggruppamento (insieme_squadre, squadra)
@@ -529,8 +553,6 @@ VALUES ('I-0','S-0'),
 	   ('I-0','S-1'),
        ('I-0','S-2'),
 	   ('I-0','S-3'),
-       ('I-0','S-4'),
-       ('I-0','S-5'),
        ('I-1','S-4'),
        ('I-1','S-5'),
        ('I-2','S-4'),
@@ -538,28 +560,23 @@ VALUES ('I-0','S-0'),
        
 INSERT INTO Rosa (squadra, giocatore, numero_maglia)
 VALUES ('S-0', 0, 0),
-	   ('S-1', 1, 2);
-       
+	   ('S-1', 1, 2),
+       ('S-4', 0, 0),
+       ('S-5', 0, 0);
+		
 LOAD DATA LOCAL INFILE './Popolamento/Giornata.csv'
 INTO TABLE Giornata
 FIELDS TERMINATED BY ','
 OPTIONALLY ENCLOSED BY '"'
 IGNORE 1 LINES
-(codice, fase, numero);
+(codice, insieme_squadre, numero);
 
 INSERT INTO Partita (giornata, giorno, ora, squadra_casa, squadra_ospite, arbitro, campo, gol_casa, gol_ospite)
 VALUES ('G-0', '2023-08-19', '18:06', 'S-0', 'S-1', '2', 'C-0', 1, 0);
 
-
-INSERT INTO Statistiche (partita, giocatore, gol, assist, ammonizioni )
+INSERT INTO Statistiche (partita, giocatore, gol, assist, ammonizioni)
 VALUES ('P-0', '0', 1, 1, 0);
 
-
-INSERT INTO Giornata (codice, fase, numero)
-VALUES # ("G-100","F-0",1),
-# (NULL,"F-0",2),
-# (NULL,"F-0",3),
-(NULL,"F-0",4);
 /*
  * SEZIONE DEDICATA ALLE INTERROGAZIONI
  */
@@ -571,6 +588,9 @@ VALUES # ("G-100","F-0",1),
 # SELECT * FROM Insieme_squadre;
 # SELECT * FROM Raggruppamento;
 # SELECT * FROM tornei_terminati;
-# SELECT * FROM Giornata;
+#  SELECT * FROM Giornata;
 # SELECT * FROM Arbitro;
+
+
+
 
