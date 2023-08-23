@@ -110,9 +110,9 @@ CREATE TABLE IF NOT EXISTS Giocatore(
 );
 
 CREATE TABLE IF NOT EXISTS Rosa(
-	squadra		VARCHAR(8),
-    giocatore	SMALLINT UNSIGNED ,
-    numero_maglia TINYINT UNSIGNED,
+	squadra			VARCHAR(8),
+    giocatore		SMALLINT UNSIGNED ,
+    numero_maglia 	TINYINT UNSIGNED,
     
     PRIMARY KEY(squadra, giocatore),
 	UNIQUE (squadra, numero_maglia),
@@ -233,26 +233,40 @@ NATURAL JOIN
 (SELECT insieme_squadre AS insieme, squadra FROM Raggruppamento) AS R;
     
 /*
+ * La successiva vista mostra i giocatori iscritti partecipanti ad ogni insieme di squadre.
+ * La vista occorre assicurarsi che nessun giocatore partecipi con due squadre differenti
+ * nello stesso insieme di squadre.
+ */
+CREATE VIEW giocatori_insieme 
+(torneo, fase, insieme, squadra, giocatore) AS
+SELECT torneo, fase, insieme, squadra, giocatore FROM
+squadra_iscrizioni
+NATURAL JOIN
+Rosa;
+  
+  
+/*
  * SEZIONE DEDICATA AI TRIGGER
  * La sezione successiva definisce i trigger per il controllo 
  * dei vincoli non esprimibili tramite i costrutti del linguaggio.
- * Per ogni tabelle è stato preferito mantenere un trigger unico
- * al fine di agevolare il lettore. Questo rendere lo script meno
- * frastagliato ma costringe ad una struttura interna non sempre immediata 
- * (esempio, prima vengono inserite tutte le dichiarazioni utili per 
- * tutti i controlli da eswguire nel trigger poi il resto).
- * I trigger relativi agli inserimenti (i primi della lista) 
- * condividono una sezione per il controllo del formato del codice.
- * Non è stato possibile implementare una procedura unica per tutti
- * i trigger per limitazioni del linguaggio: non è possibile
- * utilizzare in questi i meccanismi dinamici di SQL (es. prepared functions)
- * per il riconoscimento della tabella da cui eseguire la ricerca
- * dell'indice minimo del codice.
+ * Per ogni tabella è stato preferito mantenere due soli trigger, per 
+ * l'inserimento e per la modifica, al fine di agevolare il lettore.
+ * Questo rende lo script meno frastagliato ma costringe ad una struttura
+ * interna non sempre elegante (esempio, prima vengono inserite tutte le
+ * dichiarazioni di variabili utili per tutti i controlli da eseguire 
+ * nel trigger e poi i vari controlli).
+ * I trigger relativi agli inserimenti condividono una sezione per il 
+ * controllo del formato del codice. Non è stato possibile implementare
+ * una procedura unica per tutti i trigger per limitazioni del linguaggio:
+ * non è possibile utilizzare in questi i meccanismi dinamici di SQL
+ * (es. prepared functions) per il riconoscimento della tabella da 
+ * cui eseguire la ricerca degli indici del codice.
  * I trigger per gli inserimenti quindi controllano il formato del 
- * codice e, qualora non sia corretto, lo assegnano, individuano l'indice 
- * minimo tra quelli disponibili. (Non è detto che le istanze inserite 
- * cronologicamente dopo abbiano codice maggiore). In caso di assegnazione
- * viene restituito uno warning affinchè sia evidente l'avvenimento.
+ * codice e, qualora non sia corretto, lo assegnano, individuando l'indice 
+ * minimo tra quelli disponibili. Non è, quindi, detto che le istanze  
+ * cronologicamente successive abbiano codice maggiore. In caso di 
+ * assegnazione viene restituito uno warning affinchè sia evidente 
+ * l'avvenimento.
  */
  
 DELIMITER $$
@@ -263,15 +277,38 @@ BEGIN
 	DECLARE idx_prev_libero INT;
     DECLARE idx_next_libero INT;
 	DECLARE warnmsg VARCHAR(127); 
+    
+    -- Controllo formato codice ed eventuale asseganzione
 	IF NEW.codice NOT LIKE 'T-_%' OR NEW.codice IS NULL 
 	THEN
 		SELECT MIN(idx) INTO idx_prev_libero FROM (SELECT CAST(SUBSTRING(codice FROM 3) AS DECIMAL) -1 AS idx FROM Torneo HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Torneo)) AS idx_libero_prev;
         SELECT MIN(idx) INTO idx_next_libero FROM (SELECT CAST(SUBSTRING(codice FROM 3) AS DECIMAL) +1 AS idx FROM Torneo HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Torneo)) AS idx_libero_next;
         SET NEW.codice = CONCAT('T-', IF((idx_prev_libero < 0) OR (idx_next_libero <= idx_prev_libero ), idx_next_libero, 0));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
-		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO=1007; 
     END IF;
 END$$
+
+CREATE TRIGGER TR_UPD_Torneo BEFORE UPDATE ON Torneo
+FOR EACH ROW
+BEGIN
+	DECLARE genere_squadra 	ENUM('M','F','N');
+    
+    -- Controllo che il genere del torneo sia consictente con il genere delle squadre
+    IF OLD.genere <> NEW.genere
+    THEN
+		SELECT genere INTO genere_squadra FROM Squadra WHERE codice = (SELECT FIRST(squadra) FROM squadra_iscrizioni WHERE torneo = OLD.codice);
+        IF genere_squadra <> NEW.genere
+		THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere delle squadre assegante al torneo devono essere concordi.', MYSQL_ERRNO='1000';
+        END IF;
+    END IF;
+    
+    -- Controllo formato codice
+    IF NEW.codice NOT LIKE 'T-_%' OR NEW.codice IS NULL 
+    THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Formato codice non accettabile. Il codice inserito come nuovo codice non rispetta il formato per il campo.", MYSQL_ERRNO='1009';
+	END IF;
+END $$
 
 CREATE TRIGGER TR_INS_Fase BEFORE INSERT ON Fase
 FOR EACH ROW
@@ -285,9 +322,19 @@ BEGIN
         SELECT MIN(idx) INTO idx_next_libero FROM (SELECT CAST(SUBSTRING(codice FROM 3) AS DECIMAL) +1 AS idx FROM Fase HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Fase)) AS idx_libero_next;
         SET NEW.codice = CONCAT('F-', IF((idx_prev_libero < 0) OR (idx_next_libero <= idx_prev_libero ), idx_next_libero, 0));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
-		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO=1007; 
 	END IF;
 END$$
+
+CREATE TRIGGER TR_UPD_Fase BEFORE UPDATE ON Fase
+FOR EACH ROW
+BEGIN
+	-- Controllo formato codice
+    IF NEW.codice NOT LIKE 'F-_%' OR NEW.codice IS NULL 
+    THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Formato codice non accettabile. Il codice inserito come nuovo codice non rispetta il formato per il campo.", MYSQL_ERRNO='1009';
+	END IF;
+END $$
 
 CREATE TRIGGER TR_INS_Insieme_squadre BEFORE INSERT ON Insieme_squadre
 FOR EACH ROW
@@ -301,9 +348,19 @@ BEGIN
         SELECT MIN(idx) INTO idx_next_libero FROM (SELECT CAST(SUBSTRING(codice FROM 3) AS DECIMAL) +1 AS idx FROM Insieme_squadre HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Insieme_squadre)) AS idx_libero_next;
         SET NEW.codice = CONCAT('I-', IF((idx_prev_libero < 0) OR (idx_next_libero <= idx_prev_libero ), idx_next_libero, 0));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
-		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO=1007; 
 	END IF;
 END$$
+
+CREATE TRIGGER TR_UPD_Insieme_squadre BEFORE UPDATE ON Insieme_squadre
+FOR EACH ROW
+BEGIN
+	-- Controllo formato codice
+    IF NEW.codice NOT LIKE 'I-_%' OR NEW.codice IS NULL 
+    THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Formato codice non accettabile. Il codice inserito come nuovo codice non rispetta il formato per il campo.", MYSQL_ERRNO='1009';
+	END IF;
+END $$
 
 CREATE TRIGGER TR_INS_Campo BEFORE INSERT ON Campo
 FOR EACH ROW
@@ -317,9 +374,19 @@ BEGIN
         SELECT MIN(idx) INTO idx_next_libero FROM (SELECT CAST(SUBSTRING(codice FROM 3) AS DECIMAL) +1 AS idx FROM Campo HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Campo)) AS idx_libero_next;
         SET NEW.codice = CONCAT('C-', IF((idx_prev_libero < 0) OR (idx_next_libero <= idx_prev_libero ), idx_next_libero, 0));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
-		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO=1007; 
 	END IF;
 END$$
+
+CREATE TRIGGER TR_UPD_Campo BEFORE UPDATE ON Campo
+FOR EACH ROW
+BEGIN
+	-- Controllo formato codice
+    IF NEW.codice NOT LIKE 'C-_%' OR NEW.codice IS NULL 
+    THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Formato codice non accettabile. Il codice inserito come nuovo codice non rispetta il formato per il campo.", MYSQL_ERRNO='1009';
+	END IF;
+END $$
 
 CREATE TRIGGER TR_INS_Squadra BEFORE INSERT ON Squadra
 FOR EACH ROW  
@@ -333,18 +400,59 @@ BEGIN
         SELECT MIN(idx) INTO idx_next_libero FROM (SELECT CAST(SUBSTRING(codice FROM 3) AS DECIMAL) +1 AS idx FROM Squadra HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Squadra)) AS idx_libero_next;
         SET NEW.codice = CONCAT('S-', IF((idx_prev_libero < 0) OR (idx_next_libero <= idx_prev_libero ), idx_next_libero, 0));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
-		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO=1007; 
 	END IF;
 END$$
+
+CREATE TRIGGER TR_UPD_Squadra BEFORE UPDATE ON Squadra
+FOR EACH ROW
+BEGIN
+	DECLARE genere_torneo 			ENUM('M','F','N');
+    DECLARE genere_giocatore 		ENUM('M','F','N');
+    DECLARE gen_giocatore_cursor 	CURSOR FOR 
+		SELECT genere FROM Giocatore WHERE codice IN (SELECT giocatore FROM Rosa WHERE squadra=OLD.squadra);
+	DECLARE EXIT HANDLER FOR NOT FOUND
+    
+	-- Controllo formato codice
+    IF NEW.codice NOT LIKE 'S-_%' OR NEW.codice IS NULL 
+    THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Formato codice non accettabile. Il codice inserito come nuovo codice non rispetta il formato per il campo.", MYSQL_ERRNO='1009';
+	END IF;
+        
+	-- Controllo genere concordante tra Squadra e Torneo
+    SELECT genere INTO genere_torneo FROM Torneo WHERE codice = (SELECT FIRST(torneo) FROM squadra_iscrizioni WHERE squadra = OLD.squadra);
+    IF NEW.genere <> genere_torneo
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='1000';
+	END IF;
+    
+	-- Controllo genere compatibile tra Giocatore e Squadra
+    IF NEW.genere <> 'N'
+    THEN
+		OPEN gen_giocatore_cursor;
+		check_gen_giocatore: LOOP
+			FETCH gen_giocatore_cursor INTO genere_giocatore;
+			IF genere_giocatore <> NEW.genere		-- Squadre miste accettano giocatori di ogni genere
+			THEN
+				SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='1000';
+				LEAVE check_gen_squad;
+			END IF;
+		END LOOP;
+	END IF;
+END $$
 
 CREATE TRIGGER TR_INS_Ragguppamento BEFORE INSERT ON Raggruppamento
 FOR EACH ROW
 BEGIN
-	DECLARE genere_squadra ENUM('M','F','N');
-    DECLARE genere_torneo ENUM('M','F','N');
+	DECLARE genere_squadra 		ENUM('M','F','N');
+    DECLARE genere_torneo 		ENUM('M','F','N');
+    DECLARE errmsg				VARCHAR(127);
+    DECLARE giocatore_check		VARCHAR(8);    
+    DECLARE giocatore_cursor	CURSOR FOR 
+		SELECT giocatore FROM Rosa WHERE squadra = NEW.squadra;
+	DECLARE EXIT HANDLER FOR NOT FOUND 
     
     -- Controllo genere concordante tra Squadra e Torneo
-	SELECT Squadra.genere INTO genere_squadra FROM Squadra WHERE Squadra.codice = NEW.squadra;
+	SELECT genere INTO genere_squadra FROM Squadra WHERE codice = NEW.squadra;
     SELECT T.genere INTO genere_torneo FROM Torneo T WHERE T.codice = 
 		(SELECT F.torneo FROM Fase F WHERE F.codice = 
 			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.Insieme_squadre));
@@ -358,8 +466,78 @@ BEGIN
 			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.insieme_squadre)))
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Squadra già partecipante alla fase.', MYSQL_ERRNO='1004';
     END IF;
+    
+    -- Controllo che le squadre abbiano tutti giocatori differenti
+    OPEN giocatore_cursor;
+    check_giocatore_gia_iscritto: LOOP -- leave sottointesa: uscita con la exit dell'handler al termine dei fetch del cursore
+		FETCH giocatore_cursor INTO giocatore_check;
+        IF (SELECT COUNT(giocatore) FROM (SELECT R.giocatore FROM Rosa R WHERE R.giocatore = giocatore_check AND R.squadra IN (SELECT squadra FROM Raggruppamento WHERE insieme_squadre = NEW.insieme_squadre))giocatore_times)  <> 1
+		THEN
+			SET errmsg = CONCAT("Giocatore già presente nell'insieme di squadre. Il giocatore ", giocatore_check, " è già presente nel'insieme ", NEW.insieme_squadre);
+			SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO = '1008';
+            LEAVE check_giocatore_gia_iscritto;
+        END IF;
+	END LOOP;
 END $$
 
+CREATE TRIGGER TR_UPD_Raggruppamento BEFORE UPDATE ON Raggruppamento
+FOR EACH ROW
+BEGIN
+	DECLARE genere_squadra 		ENUM('M','F','N');
+    DECLARE genere_torneo 		ENUM('M','F','N');
+    DECLARE n_squadre_new 		SMALLINT UNSIGNED;
+    DECLARE n_squadre_old		SMALLINT UNSIGNED;
+    DEClARE warnmsg 			VARCHAR(127);
+    DECLARE errmsg				VARCHAR(127);
+	DECLARE giocatore_check		VARCHAR(8);    
+    DECLARE giocatore_cursor	CURSOR FOR 
+		SELECT giocatore FROM Rosa WHERE squadra = NEW.squadra;
+	DECLARE EXIT HANDLER FOR NOT FOUND 
+    
+    -- Controllo genere concordante tra Squadra e Torneo
+	SELECT genere INTO genere_squadra FROM Squadra WHERE codice = OLD.squadra;
+    SELECT T.genere INTO genere_torneo FROM Torneo T WHERE T.codice = 
+		(SELECT F.torneo FROM Fase F WHERE F.codice = 
+			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.Insieme_squadre));
+    IF genere_squadra <> genere_torneo
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='1000';
+	END IF;
+    
+	-- Controllo che la squadra non stia gia partecipando alla fase
+    IF (NEW.squadra IN 
+		(SELECT isc.squadra FROM squadra_iscrizioni AS isc WHERE isc.fase IN 
+			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.insieme_squadre)))
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Squadra già partecipante alla fase.', MYSQL_ERRNO='1004';
+    END IF;
+    
+    -- Controllo che le squadre abbiano tutti giocatori differenti
+    OPEN giocatore_cursor;
+    check_giocatore_gia_iscritto: LOOP -- leave sottointesa: uscita con la exit dell'handler al termine dei fetch del cursore
+		FETCH giocatore_cursor INTO giocatore_check;
+        IF (SELECT COUNT(giocatore) FROM (SELECT R.giocatore FROM Rosa R WHERE R.giocatore = giocatore_check AND R.squadra IN (SELECT squadra FROM Raggruppamento WHERE insieme_squadre = NEW.insieme_squadre))giocatore_times)  <> 1
+		THEN
+			SET errmsg = CONCAT("Giocatore già presente nell'insieme di squadre. Il giocatore ", giocatore_check, " è già presente nel'insieme ", NEW.insieme_squadre);
+			SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO = '1008';
+            LEAVE check_giocatore_gia_iscritto;
+        END IF;
+	END LOOP;
+    
+    -- Controllo numero di partite per giornata
+    SELECT COUNT(squadra) INTO n_squadre_new FROM Raggruppamento WHERE insieme_squadre = NEW.insieme_squadre;
+    SELECT COUNT(squadra) INTO n_squadre_old FROM Raggruppamento WHERE insieme_squadre = OLD.insieme_squadre;
+    
+	IF FLOOR(n_squadre_new/2) = ANY
+		(SELECT COUNT(P.codice) FROM Partita P, Giornata G 
+        WHERE P.giornata = G.codice AND G.insieme_squadre = NEW.insieme_squadre
+        GROUP BY G.codice)
+	OR FLOOR(n_squadre_old/2) = ANY
+		(SELECT COUNT(P.codice) FROM Partita P, Giornata G 
+        WHERE P.giornata = G.codice AND G.insieme_squadre = OLD.insieme_squadre
+        GROUP BY G.codice)
+    THEN SET warnmsg = CONCAT("Numero partite per giornata degli insiemi di squadre pertinenti alla modifica non consistente.");
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO = 1006; 
+    END IF;
+END $$
 
 CREATE TRIGGER TR_INS_Giornata BEFORE INSERT ON Giornata
 FOR EACH ROW
@@ -377,7 +555,7 @@ BEGIN
         SELECT MIN(idx) INTO idx_next_libero FROM (SELECT (CAST(SUBSTRING(codice FROM 3) AS DECIMAL) +1) AS idx FROM Giornata HAVING idx NOT IN (SELECT CAST(SUBSTRING(codice FROM 3) AS UNSIGNED) FROM Giornata)) AS idx_libero_next;
         SET NEW.codice = CONCAT('G-', IF((idx_prev_libero < 0) OR (idx_next_libero <= idx_prev_libero ), idx_next_libero, 0));
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
-        SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg;
+        SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO=1007;
 	END IF;
         
     -- Controllo vincoli del numero di giornate a seconda della modalita della fase
@@ -401,6 +579,28 @@ BEGIN
     END IF;
 END$$
 
+CREATE TRIGGER TR_UPD_Giornata BEFORE UPDATE ON Giornata
+FOR EACH ROW
+BEGIN
+	DECLARE n_partite 	SMALLINT UNSIGNED;
+    DECLARE n_squadre 	SMALLINT UNSIGNED;
+    DEClARE warnmsg 	VARCHAR(127);
+    
+	-- Controllo formato codice
+    IF NEW.codice NOT LIKE 'G-_%' OR NEW.codice IS NULL 
+    THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Formato codice non accettabile. Il codice inserito come nuovo codice non rispetta il formato per il campo.", MYSQL_ERRNO='1009';
+	END IF;
+    
+    -- Controllo numero di partite per giornata
+    SELECT COUNT(codice)+1 INTO n_partite FROM Partita WHERE giornata=NEW.codice;	
+    SELECT COUNT(squadra) INTO n_squadre FROM Raggruppamento WHERE insieme_squadre = NEW.insieme_squadre;
+	IF n_partite <> FLOOR(n_squadre/2)
+    THEN SET warnmsg = CONCAT("Numero partite nella giornata inconsistente: (part_attese - part_presenti)", (n_squadre/2), '-', n_partite);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO = 1006; 
+    END IF;
+END $$
+
 /*
  * Inesrimenti di tesserati (Giocatore e Arbitro).
  * Le tessere sono assegnate seguendo l'ordine cronologico. Le prime tessere
@@ -418,14 +618,33 @@ BEGIN
 	THEN 
 		SET NEW.tessera = COALESCE((SELECT MAX(tessera) FROM tesseramenti) + 1, 0);
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con tessera: ", NEW.tessera);
-		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO=1007; 
 	END IF;
 END$$
+
+CREATE TRIGGER TR_UPD_Giocatore BEFORE UPDATE ON Giocatore
+FOR EACH ROW
+BEGIN
+	DECLARE genere_squadra ENUM('M', 'F', 'N');
+    DECLARE gen_squad_cursor CURSOR FOR 
+		SELECT genere FROM Rosa WHERE giocatore = OLD.tessera;
+	DECLARE EXIT HANDLER FOR NOT FOUND 
+	-- Controllo genere compatibile tra Giocatore e Squadra
+    OPEN gen_squad_cursor;
+    check_gen_squad: LOOP
+		FETCH gen_squad_cursor INTO genere_squadra;
+		IF genere_squadra <> 'N' AND genere_squadra <> NEW.genere		-- Squadre miste accettano giocatori di ogni genere
+		THEN
+			SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='1000';
+            LEAVE check_gen_squad;
+		END IF;
+	END LOOP;
+END $$
 
 CREATE TRIGGER TR_INS_Rosa BEFORE INSERT ON Rosa
 FOR EACH ROW
 BEGIN
-	DECLARE genere_squadra ENUM('M','F','N');
+	DECLARE genere_squadra	 ENUM('M','F','N');
     DECLARE genere_giocatore ENUM('M','F','N');
     
 	-- Controllo numero_maglia appartenente al dominio 
@@ -439,6 +658,41 @@ BEGIN
     IF genere_squadra <> 'N' AND genere_squadra <> genere_giocatore		-- Squadre miste accettano giocatori di ogni genere
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='1000';
 	END IF;
+    
+    -- Controllo che le squadre abbiano tutti giocatori differenti
+    IF (SELECT ALL COUNT(GI.giocatore) FROM 
+		(SELECT giocatore FROM giocatori_insieme WHERE insieme IN 
+			(SELECT insieme FROM Raggruppamento WHERE squadra = NEW.squadra)) GI 
+		WHERE GI.giocatore = NEW.giocatore) <> 1
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Giocatore già presente nell'insieme di squadre.", MYSQL_ERRNO = '1008';
+	END IF;
+END $$
+
+CREATE TRIGGER TR_UPD_Rosa BEFORE UPDATE ON Rosa
+FOR EACH ROW
+BEGIN
+	DECLARE genere_squadra	 ENUM('M','F','N');
+    DECLARE genere_giocatore ENUM('M','F','N');
+    
+	-- Controllo numero_maglia appartenente al dominio 
+    IF NEW.numero_maglia > 99		-- Data la tipologia UNSIGNED del dato non occorre il controllo: (... < 0)
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Numero maglia non accettabile. I numeri di maglia devono essere interni compresi tra 0 e 99 inclusi.', MYSQL_ERRNO='1002';
+	END IF;
+    
+	-- Controllo genere compatibile tra Giocatore e Squadra
+	SELECT Squadra.genere INTO genere_squadra FROM Squadra WHERE Squadra.codice = NEW.squadra;
+    SELECT Giocatore.genere INTO genere_giocatore FROM Giocatore WHERE Giocatore.tessera = NEW.Giocatore;
+    IF genere_squadra <> 'N' AND genere_squadra <> genere_giocatore		-- Squadre miste accettano giocatori di ogni genere
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='1000';
+	END IF;
+    
+	-- Controllo che le squadre abbiano tutti giocatori differenti
+    IF (SELECT ALL COUNT(giocatore) FROM 
+		(SELECT giocatore FROM giocatori_insieme WHERE insieme IN 
+			(SELECT insieme FROM Raggruppamento WHERE squadra = NEW.squadra)) GI
+		WHERE giocatore = NEW.giocatore) <> 1
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Giocatore già presente nell'insieme di squadre.", MYSQL_ERRNO = '1008';
+	END IF;
 END $$
 
 CREATE TRIGGER TR_INS_Arbitro BEFORE INSERT ON Arbitro
@@ -449,7 +703,7 @@ BEGIN
 	THEN 
 		SET NEW.tessera = COALESCE((SELECT MAX(tessera) FROM tesseramenti) + 1, 0);
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con tessera: ", NEW.tessera);
-		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO=1007; 
 	END IF;
 END$$
 
@@ -459,6 +713,8 @@ BEGIN
 	DECLARE idx_prev_libero INT;
     DECLARE idx_next_libero INT;
 	DECLARE warnmsg VARCHAR(127);
+    DECLARE n_partite SMALLINT UNSIGNED;
+    DECLARE n_squadre SMALLINT UNSIGNED;
     
 	-- Controllo vincolo: squadre giocanti diverse
     IF NEW.squadra_casa = NEW.squadra_ospite
@@ -474,9 +730,56 @@ BEGIN
 		SET warnmsg = CONCAT("Il codice inserito non risulta accettabile. Istanza inserita con codice: ", NEW.codice);
 		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg; 
 	END IF;
-	
     
+    -- Controllo numero di partite per giornata
+    SELECT COUNT(codice)+1 INTO n_partite FROM Partita WHERE giornata=NEW.giornata;		-- Somma 1 per contare anche la partita in insermento
+    SELECT COUNT(squadra) INTO n_squadre FROM Raggruppamento WHERE insieme_squadre = 
+		(SELECT insieme_squadre FROM Giornata WHERE codice = NEW.giornata);
+	IF n_partite <> FLOOR(n_squadre/2)
+    THEN SET warnmsg = CONCAT("Numero partite nella giornata inconsistente: (part_attese - part_presenti)", (n_squadre/2), '-', n_partite);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO = 1006; 
+    END IF;
 END$$
+
+CREATE TRIGGER TR_UPD_Partita BEFORE UPDATE ON Partita
+FOR EACH ROW
+BEGIN
+	-- Controllo formato codice
+    IF NEW.codice NOT LIKE 'P-_%' OR NEW.codice IS NULL 
+    THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Formato codice non accettabile. Il codice inserito come nuovo codice non rispetta il formato per il campo.", MYSQL_ERRNO='1009';
+	END IF;
+END $$
+
+CREATE TRIGGER TR_UPD_Partita AFTER UPDATE ON Partita
+FOR EACH ROW
+BEGIN
+	DECLARE somma_gol_casa 		TINYINT UNSIGNED;
+	DECLARE somma_gol_ospite	TINYINT UNSIGNED;
+    DECLARE warnmsg				VARCHAR(127);
+    DECLARE n_partite			SMALLINT UNSIGNED;
+    DECLARE n_squadre			SMALLINT UNSIGNED;
+    
+    -- Controllo che somma dei gol corrisponda a punteggio partita
+    SELECT SUM(gol) INTO somma_gol_casa FROM Statistiche WHERE partita = NEW.codice AND giocatore IN
+		(SELECT giocatore FROM Rosa WHERE squadra = NEW.squadra_casa);
+    SELECT SUM(gol) INTO somma_gol_ospite FROM Statistiche WHERE partita = NEW.codice AND giocatore IN
+		(SELECT giocatore FROM Rosa WHERE squadra = NEW.squadra_ospite);    
+    IF somma_gol_casa <> NEW.gol_casa OR somma_gol_ospite <> NEW.gol_ospite
+    THEN
+		SET warnmsg = CONCAT("Punteggio inconsistente. Il punteggio della partita non corrisponde alla somma dei gol: ", CONCAT(NEW.gol_casa, '-', NEW.gol_ospite), " invece di ", CONCAT(somma_gol_casa, '-', somma_gol_ospite));
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO='1005';
+	END IF;
+    
+	-- Controllo numero di partite per giornata
+    SELECT COUNT(codice) INTO n_partite FROM Partita WHERE giornata=NEW.giornata;	
+    SELECT COUNT(squadra) INTO n_squadre FROM Raggruppamento WHERE insieme_squadre = 
+		(SELECT insieme_squadre FROM Giornata WHERE codice = NEW.giornata);
+	IF n_partite <> FLOOR(n_squadre/2)
+    THEN SET warnmsg = CONCAT("Numero partite nella giornata inconsistente: (part_attese - part_presenti)", (n_squadre/2), '-', n_partite);
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO = 1006; 
+    END IF;
+END $$
 
 CREATE TRIGGER TR_INS_Statistiche BEFORE INSERT ON Statistiche
 FOR EACH ROW
@@ -494,7 +797,7 @@ BEGIN
     END IF;
     
     -- Controllo che somma dei gol corrisponda a punteggio partita
-	SELECT SUM(gol) INTO somma_gol FROM Statistiche WHERE partita = NEW.partita AND giocatore IN 
+	SELECT SUM(gol)+NEW.gol INTO somma_gol FROM Statistiche WHERE partita = NEW.partita AND giocatore IN 
 		(SELECT DISTINCT giocatore FROM Rosa WHERE squadra IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore));
 	SELECT squadra_casa INTO squadra_casa FROM Partita WHERE codice = NEW.partita;
 	SELECT IF(squadra_casa IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore), gol_casa, gol_ospite) 	-- la condizione che la squadra di casa sia una di quelle del giocatore è sufficiente dato il vincolo di singola partecipazoine del giocatore ad un insieme di squadra 
@@ -506,6 +809,26 @@ BEGIN
 	END IF;
 END $$
 
+CREATE TRIGGER TR_UPD_Statistiche BEFORE UPDATE ON Statistiche
+FOR EACH ROW
+BEGIN
+	DECLARE squadra_casa			VARCHAR(8);
+	DECLARE somma_gol 				TINYINT UNSIGNED;
+    DECLARE gol_squadra_giocatore 	TINYINT UNSIGNED;
+    DECLARE warnmsg					VARCHAR(127);
+    
+    -- Controllo che somma dei gol corrisponda a punteggio partita
+	SELECT SUM(gol)-OLD.gol+NEW.gol INTO somma_gol FROM Statistiche WHERE partita = NEW.partita AND giocatore IN 
+		(SELECT DISTINCT giocatore FROM Rosa WHERE squadra IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore));
+	SELECT squadra_casa INTO squadra_casa FROM Partita WHERE codice = NEW.partita;
+	SELECT IF(squadra_casa IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore), gol_casa, gol_ospite) 	-- la condizione che la squadra di casa sia una di quelle del giocatore è sufficiente dato il vincolo di singola partecipazoine del giocatore ad un insieme di squadre 
+		INTO gol_squadra_giocatore FROM Partita WHERE codice = NEW.partita;
+    IF somma_gol <> gol_squadra_giocatore
+    THEN
+		SET warnmsg = CONCAT("Punteggio inconsistente. Il punteggio della partita non corrisponde alla somma dei gol: (somma gol) - (gol squadra) = ", (somma_gol - gol_squadra_giocatore));
+		SIGNAL SQLSTATE '01000' SET MESSAGE_TEXT = warnmsg, MYSQL_ERRNO='1005';
+	END IF;
+END$$
 DELIMITER ;
 
 
@@ -572,7 +895,10 @@ IGNORE 1 LINES
 (codice, insieme_squadre, numero);
 
 INSERT INTO Partita (giornata, giorno, ora, squadra_casa, squadra_ospite, arbitro, campo, gol_casa, gol_ospite)
-VALUES ('G-0', '2023-08-19', '18:06', 'S-0', 'S-1', '2', 'C-0', 1, 0);
+VALUES ('G-0', '2023-08-19', '18:06', 'S-0', 'S-1', '2', 'C-0', 1, 0),
+	   ('G-1', '2023-08-19', '18:06', 'S-0', 'S-1', '2', 'C-0', 1, 0);
+
+UPDATE Partita SET gol_casa = 3, gol_ospite=2 WHERE codice = 'P-0';
 
 INSERT INTO Statistiche (partita, giocatore, gol, assist, ammonizioni)
 VALUES ('P-0', '0', 1, 1, 0);
@@ -590,7 +916,5 @@ VALUES ('P-0', '0', 1, 1, 0);
 # SELECT * FROM tornei_terminati;
 #  SELECT * FROM Giornata;
 # SELECT * FROM Arbitro;
-
-
 
 
