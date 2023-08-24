@@ -1,89 +1,90 @@
-﻿tessera,nome,cognome,genere,nascita,squadra,numero
-Ispo,Popo,M,1997-08-12,"Popolo di Polo"
-J,Ponzi,M,1998-02-03,"Popolo di Polo"
-Cosimo,Mazzoleni,M,2000-12-04,"Popolo di Polo"
-Pipo,Vez,M,1987-03-04,"Popolo di Polo"
-Sacarildate,Mereterigraldo,M,1988-10-09,"Popolo di Polo"
-Traponzio,Mereterigraldo,M,1989-12-19,"Popolo di Polo"
-Fatteo,Fafnir,M,1970-11-26,"Popolo di Polo"
-Shrek,Orco,M,1973-12-12,"Dreamworkers"
-Uomo,Focaccina,M,1987-07-15,"Dreamworkers"
-Lord,Farquaad,M,1978-05-26,"Dreamworkers"
-Lupo,Cattivo,M,1975-11-29,"Dreamworkers"
-Pinocchio,Burattino,N,1987-01-17,"Dreamworkers"
-Ciuchino,Parlante,M,1978-04-11,"Dreamworkers"
-Harold,Re,M,1953-06-21,"Dreamworkers"
-Lady,Cocca,F,1975-12-29,"FC Disney"
-Merlino,Mago,M,1938-07-21,"FC Disney"
-Artu,Semola,M,1998-12-27,"FC Disney"
-Pilade,Messer,M,1974-04-12,"FC Disney"
-Robin,Hood,M,1979-02-16,"FC Disney"
-Cuzco,Imperatore,1988-07-19,"FC Disney"
-Miguel,Eldorado,1986-02-04,"FC Disney"
-Homer,Simpson,M,1964-05-24,"The Simpsons"
-Bart,Simpson,M,1998-02-17,"The Simpsons"
-Milhouse,Van Houten,M,1998-04-21,"The Simpsons"
-Ned,Flanders,M,1965-12-04,"The Simpsons"
-Nelson,Muntz,M,1996-02-13,"The Simpsons"
-Barney,Gumble,M,1971-07-30,"The Simpsons"
-Ralph,Winchester,M,2000-01-15,"The Simpsons"
-Hari,Seldon,M,1982-04-17,"Foundation and Robots"
-Giskard,R.,N,1993-07-11,"Foundation and Robots"
-Daneel,R. Olivaw,N,1990-08-31,"Foundation and Robots"
-Elijah,Baley,M,1982-11-17,"Foundation and Robots"
-Susan,Calvin,F,1943-04-07,"Foundation and Robots"
-Gladia,Delmarre,F,1978-10-28,"Foundation and Robots"
-Arcadia,Darell,F,1997-02-14,"Foundation and Robots"
-Zaphod,Beeblebrox,M,1973-02-18,"The Hitchikers"
-Arthur,Dent,M,1971-08-26,"The Hitchhikers"
-Ford,Prefect,M,1975-09-15,"The Hitchhikers"
-Slarti,bartfast,M,1941-03-05,"The Hitchhikers"
-Marvin,Androide,N,1968-12-31,"The Hitchhikers"
-Eccentrica,Gallumbits,F,1986-07-29,"The Hitchhikers"
-Zarquon,Profeta,M,1912-11-05,"The Hitchhikers"
-Zarniwoop,Direttore,M,1962-02-06,"The Hitchhikers"
-Ade,,M,0000-01-01,"Dei dell'Olimpo"
-Zeus,,M,0000-01-01,"Dei dell'Olimpo"
-Apollo,,M,0000-01-01,"Dei dell'Olimpo"
-Ares,,M,0000-01-01,"Dei dell'Olimpo"
-Crono,,M,0000-01-01,"Dei dell'Olimpo"
-Ugo,Fantozzi,M,1955-09-18,"Scapoli e Ammogliati"
-Ragionier,Filini,M,1957-04-08,"Scapoli e Ammogliati"
-Geometra,Calboni,M,1953-08-11,"Scapoli e Ammogliati"
-Megadirettore,Galattico,M,1928-08-30,"Scapoli e Ammogliati"
-Conte Diego,Catellani,M,1943-09-12,"Scapoli e Ammogliati"
-Segugio,Risorse Umane,M,1953-10-22,"Scapoli e Ammogliati"
-Joey,Tribbiani,M,1970-07-03,"New York Boys"
-Chandler,Bing,M,1964-01-21,"New York Boys"
-Ross,Geller,M,1965-08-01,"New York Boys"
-Barney,Stinson,M,1980-05-31,"New York Boys"
-Ted,Mosby,M,1978-04-17,"New York Boys"
-Marshall,Eriksen,M,1976,"New York Boys"
-Tommaso,Paladini,M,1962-07-06,"Ovosodo"
-Piero,Mansani,M,1964-11-14,"Ovosodo"
-Ivanone,Mansani,M,1960-05-28,"Ovosodo"
-Nicola,Gargani,M,1963-02-23,"Ovosodo"
-Mirko,Mainardi,M,1963-07-13,"Ovosodo"
-Werner,Heisenberg,M,1902-11-23,"Quantum Team"
-Paul,Dirac,M,1905-02-04,"Quantum Team"
-Niels,Bohr,M,1893-05-24,"Quantum Team"
-Max,Planck,M,1875-03-18,"Quantum Team"
-Erwin,Schrodinger,M,1888-09-08,"Quantum Team"
-Bugs,Bunny,M,2001-04-12,"TM5 Looney Tunes"
-Daffy,Duck,M,2003-12-14,"TM5 Looney Tunes"
-Porky,Pig,M,1996-02-28,"TM5 Looney Tunes"
-Willy,Coyote,M,1997-11-21,"TM5 Looney Tunes"
-Taz,Della Tasmania,M,1998-12-03,"TM5 Looney Tunes"
-Syndrome,Boy,M,1970-04-19,"The Incredibles"
-Dashiell Flash,Parr,M,2000-05-21,"The Incredibles"
-Jackjack,Parr,M,2006-07-20,"The Incredibles"
-Lucius,Best,M,1968-01-13,"The Incredibles"
-Speedy,Gonzales,M,2000-06-18,"TM5 Looney Tunes"
-Bob,Parr,M,1970-03-25,"The Incredibles"
-Philip J.,Fry,M,1975-11-24,"Future Team"
-Bender,Rodriguez,M,2985-06-12,"Future Team"
-Hermes,Conrad,M,2978-08-26,"Future Team"
-Dottor,Zoidberg,M,2965-12-06,"Future Team"
-Hubert,Farnsworth,M,2858-03-22,"Future Team"
-Zapp,Brannigan,M,2975-09-27,"Future Team"
-Richard,Nixon,M,1913-01-09,"Future Team"
+"Tessera","Nome","Cognome","Genere","Data di nascita"
+
+NULL,"Ispo","Popo","M",1997-08-12
+NULL,"J","Ponzi","M",1998-02-03
+NULL,"Cosimo","Mazzoleni","M",2000-12-04
+NULL,"Pipo","Vez","M",1987-03-04
+NULL,"Sacarildate","Mereterigraldo","M",1988-10-09
+NULL,"Traponzio","Mereterigraldo","M",1989-12-19
+NULL,"Fatteo","Fafnir","M",1970-11-26
+NULL,"Shrek","Orco","M",1973-12-12
+NULL,"Uomo","Focaccina","M",1987-07-15
+NULL,"Lord","Farquaad","M",1978-05-26
+NULL,"Lupo","Cattivo","M",1975-11-29
+NULL,"Pinocchio","Burattino","N",1987-01-17
+NULL,"Ciuchino","Parlante","M",1978-04-11
+NULL,"Harold","Re","M",1953-06-21
+NULL,"Lady","Cocca","F",1975-12-29
+NULL,"Merlino","Mago","M",1938-07-21
+NULL,"Artu","Semola","M",1998-12-27
+NULL,"Pilade","Messer","M",1974-04-12
+NULL,"Robin","Hood","M",1979-02-16
+NULL,"Cuzco","Imperatore","M","1988-07-19"
+NULL,"Miguel","Eldorado","M","1986-02-04"
+NULL,"Homer","Simpson","M",1964-05-24
+NULL,"Bart","Simpson","M",1998-02-17
+NULL,"Milhouse","Van Houten","M",1998-04-21
+NULL,"Ned","Flanders","M",1965-12-04
+NULL,"Nelson","Muntz","M",1996-02-13
+NULL,"Barney","Gumble","M",1971-07-30
+NULL,"Ralph","Winchester","M",2000-01-15
+NULL,"Hari","Seldon","M",1982-04-17
+NULL,"Giskard","R.","N",1993-07-11
+NULL,"Daneel","R. Olivaw","N",1990-08-31
+NULL,"Elijah","Baley","M",1982-11-17
+NULL,"Susan","Calvin","F",1943-04-07
+NULL,"Gladia","Delmarre","F",1978-10-28
+NULL,"Arcadia","Darell","F",1997-02-14
+NULL,"Zaphod","Beeblebrox","M",1973-02-18
+NULL,"Arthur","Dent","M",1971-08-26
+NULL,"Ford","Prefect","M",1975-09-15
+NULL,"Slarti","bartfast","M",1941-03-05
+NULL,"Marvin","Androide","N",1968-12-31
+NULL,"Eccentrica","Gallumbits","F",1986-07-29
+NULL,"Zarquon","Profeta","M",1912-11-05
+NULL,"Zarniwoop","Direttore","M",1962-02-06
+NULL,"Ade","di Kronos","M",0001-01-01
+NULL,"Zeus","di Kronos","M",0001-01-01
+NULL,"Apollo","di Zeus","M",0001-01-01
+NULL,"Ares","di Zeus","M",0001-01-01
+NULL,"Kronos","Dei","M",0001-01-01
+NULL,"Ugo","Fantozzi","M",1955-09-18
+NULL,"Ragionier","Filini","M",1957-04-08
+NULL,"Geometra","Calboni","M",1953-08-11
+NULL,"Megadirettore","Galattico","M",1928-08-30
+NULL,"Conte Diego","Catellani","M",1943-09-12
+NULL,"Segugio","Risorse Umane","M",1953-10-22
+NULL,"Joey","Tribbiani","M",1970-07-03
+NULL,"Chandler","Bing","M",1964-01-21
+NULL,"Ross","Geller","M",1965-08-01
+NULL,"Barney","Stinson","M",1980-05-31
+NULL,"Ted","Mosby","M",1978-04-17
+NULL,"Marshall","Eriksen","M",1976-06-12
+NULL,"Tommaso","Paladini","M",1962-07-06
+NULL,"Piero","Mansani","M",1964-11-14
+NULL,"Ivanone","Mansani","M",1960-05-28
+NULL,"Nicola","Gargani","M",1963-02-23
+NULL,"Mirko","Mainardi","M",1963-07-13
+NULL,"Werner","Heisenberg","M",1902-11-23
+NULL,"Paul","Dirac","M",1905-02-04
+NULL,"Niels","Bohr","M",1893-05-24
+NULL,"Max","Planck","M",1875-03-18
+NULL,"Erwin","Schrodinger","M",1888-09-08
+NULL,"Bugs","Bunny","M",2001-04-12
+NULL,"Daffy","Duck","M",2003-12-14
+NULL,"Porky","Pig","M",1996-02-28
+NULL,"Willy","Coyote","M",1997-11-21
+NULL,"Taz","Della Tasmania","M",1998-12-03
+NULL,"Syndrome","Boy","M",1970-04-19
+NULL,"Dashiell Flash","Parr","M",2000-05-21
+NULL,"Jackjack","Parr","M",2006-07-20
+NULL,"Lucius","Best","M",1968-01-13
+NULL,"Speedy","Gonzales","M",2000-06-18
+NULL,"Bob","Parr","M",1970-03-25
+NULL,"Philip J.","Fry","M",1975-11-24
+NULL,"Bender","Rodriguez","M",2985-06-12
+NULL,"Hermes","Conrad","M",2978-08-26
+NULL,"Dottor","Zoidberg","M",2965-12-06
+NULL,"Hubert","Farnsworth","M",2858-03-22
+NULL,"Zapp","Brannigan","M",2975-09-27
+NULL,"Richard","Nixon","M",1913-01-09

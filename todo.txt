@@ -1,13 +1,8 @@
-CORREGGERE PROGETTO: Giornate in relazione con Insieme squadre e non con Fase, altrimenti si limita il numeoro di squadre nei giornoni ad essere sempre uguale per ogni girone (Numero di giornate sempre uguale per Insieme di squadre di una fase)
-
-
 Terminare ALTRI VINCOLI
 Parte Implementazione MySQL: definire e descrivere procedure, trigger ecc
 
 
 Commentare script (anche con un minimo di analisi delle prestazioni)
-TRIGGERS:- inserimenti
-	- update
 Terminare file per il POPOLAMENTO: inserimenti a mano, inserimenti tramite .in e .CSV
 VIEWS: 	- squalificati prossima partita
 	- classifica
@@ -20,6 +15,7 @@ VIEWS: 	- squalificati prossima partita
 PROCEDURES: 	- inserimento fase
 		- inserimento statistica giocatore
 		- creazione fasi finali
+		- creazione che inserisce le giornate necessarie nella tabella giornate una volta definito il raggruppamento di un insieme di squadre
 		
 INTERROGAZIONI:	- trovare i numeri 10 di ogni squadra
 		- giocatori non assegnati a nessuna squadra
@@ -70,3 +66,8 @@ Altri vincoli: 	- squadra casa <> squadra trasferta
 		- numro partite per giornata == numero squadre /2
 
 Controllare azioni delle foreign keys
+
+CORREGGERE PROGETTO: Giornate in relazione con Insieme squadre e non con Fase, altrimenti si limita il numeoro di squadre nei giornoni ad essere sempre uguale per ogni girone (Numero di giornate sempre uguale per Insieme di squadre di una fase)
+
+TRIGGERS:- inserimenti
+	 - update

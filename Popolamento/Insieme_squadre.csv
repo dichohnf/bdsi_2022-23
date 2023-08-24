@@ -1,9 +1,6 @@
-1,Fase a gironi,A
-1,Fase a gironi,B
-1,Finale a eliminazione,NULL
-2,Fase a gironi,X
-2,Fase a gironi,Y
-2,Finale a eliminazione,NULL
-3,Iniziale,A
-3,Iniziale,B
-3,Finale a eliminazione,NULL
+fase, nome
+
+F-0,A
+F-0,B
+F-1,NULL
+F-2,NULL
