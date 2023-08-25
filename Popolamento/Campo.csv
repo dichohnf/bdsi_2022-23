@@ -1,13 +1,13 @@
-Codice, Nome, Telefono, Comune, Via, Civico
-
-NULL,Giardini di Cintoia,NULL,Greve in Chianti,via Don Corrado Raspini,1000
-NULL,Campetto Calciapalloni,3334455666,Fiesole,Vicolo nascosto,7
-NULL,Campetto Galattico,NULL,"Sede della Guida",piazza degli autostoppisti,42
-NULL,Oratorio Cellino,0551233777,Sangio,via del paradiso,33
-NULL,Campetto Ovale,055545454,Firenze,Piazza delle Cure,1
-NULL,Giardini di Bellariva,NULL,Firenze,Via di Bellariva,70
-NULL,CDM,0552751016,Firenze,Viale G.B. Morgagni,40
-NULL,Campo Colla,NULL,Firenze,Via Slataper,8
-NULL,Rettorato,0552757275,Firenze,Piazza San Marco,4
-NULL,Polo,NULL,Sesto Fiorentino,Viale delle Idee,0
-NULL,Vecchia Palude,NULL,Regno di Lord Faarquad,via Fangosa,13
+"Codice"," Nome"," Telefono"," Comune"," Via"," Civico"
+,,,,,
+"C-0","Giardini di Cintoia",NULL,"Greve in Chianti","via Don Corrado Raspini",1000
+"C-1","Campetto Calciapalloni",3334455666,"Fiesole","Vicolo nascosto",7
+"C-2","Campetto Galattico",NULL,"Sede della Guida","piazza degli autostoppisti",42
+"C-3","Oratorio Cellino",551233777,"Sangio","via del paradiso",33
+"C-4","Campetto Ovale",55545454,"Firenze","Piazza delle Cure",1
+"C-5","Giardini di Bellariva",NULL,"Firenze","Via di Bellariva",70
+"C-6","CDM",552751016,"Firenze","Viale G.B. Morgagni",40
+"C-7","Campo Colla",NULL,"Firenze","Via Slataper",8
+"C-8","Rettorato",552757275,"Firenze","Piazza San Marco",4
+"C-9","Polo",NULL,"Sesto Fiorentino","Viale delle Idee",0
+"C-10","Vecchia Palude",NULL,"Regno di Lord Faarquad","via Fangosa",13
