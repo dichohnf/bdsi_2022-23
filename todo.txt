@@ -1,3 +1,5 @@
+[PARTIZONAMENTO VERTICALE PARTITA] -> partita, partita giocata {cosicche classifica sia aggiornata al momento di inserimenti di partite giocate o ricalcolata alla modifica: procedura ricalcolo classifica??}
+
 Terminare ALTRI VINCOLI
 Parte Implementazione MySQL: definire e descrivere procedure, trigger ecc
 
@@ -12,10 +14,11 @@ VIEWS: 	- squalificati prossima partita
 	- piu espulsi
 	- prossime partite da giocare
 	
-PROCEDURES: 	- inserimento fase
-		- inserimento statistica giocatore
+PROCEDURES: 	- inserimento statistica giocatore (lancia warning in caso di somma gol differente da punteggio partita e aggiunge istanze in Espulsione {sposta da TR_INS_Statistica a procedura})
 		- creazione fasi finali
-		- creazione che inserisce le giornate necessarie nella tabella giornate una volta definito il raggruppamento di un insieme di squadre
+		- procedura che inserisce le giornate necessarie nella tabella giornate una volta definito il raggruppamento di un insieme di squadre
+		- procedura ricalcolo classifica?
+		-
 		
 INTERROGAZIONI:	- trovare i numeri 10 di ogni squadra
 		- giocatori non assegnati a nessuna squadra

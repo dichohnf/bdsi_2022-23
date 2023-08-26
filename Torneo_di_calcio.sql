@@ -273,25 +273,24 @@ SELECT torneo, fase, insieme, squadra FROM
 (SELECT F.torneo AS torneo, F.codice AS fase, I.codice AS insieme FROM Fase F, Insieme_squadre I WHERE F.codice = I.fase) AS TFI 
 NATURAL JOIN 
 (SELECT insieme_squadre AS insieme, squadra FROM Raggruppamento) AS R;
-    
+
 /*
- * La successiva vista mostra i giocatori iscritti partecipanti ad ogni insieme di squadre.
- * La vista occorre assicurarsi che nessun giocatore partecipi con due squadre differenti
- * nello stesso insieme di squadre.
+ * La seguente vista mostra l'elenco delle partite per ogni torneo, 
+ * comprese le squadre che giocano la suddetta partita.
  */
-CREATE VIEW giocatori_insieme 
-(torneo, fase, insieme, squadra, giocatore) AS
-SELECT torneo, fase, insieme, squadra, giocatore FROM
-squadra_iscrizioni
-NATURAL JOIN
-Rosa;
+ CREATE VIEW partite_torneo 
+ (torneo, fase, insieme, giornata, numero_giornata, partita, squadra_casa, squadra_ospite) AS
+ SELECT torneo, fase, insieme, giornata, numero_giornata, partita, squadra_casa, squadra_ospite FROM 
+ (SELECT F.torneo AS torneo, F.codice AS fase, I.codice AS insieme FROM Fase F, Insieme_squadre I WHERE F.codice = I.fase) AS TFI 
+ NATURAL JOIN
+ (SELECT G.insieme AS insieme, G.codice AS giornata, G.numero AS numero_giornata, P.codice AS partita, P.squadra_casa, P.squadra_ospite FROM Giornata G, Partita P WHERE P.giornata = G.codice);
 
 /*
  * SEZIONE DEDICATA AI TRIGGER
  * La sezione successiva definisce i trigger per il controllo 
- * dei vincoli non esprimibili tramite i costrutti del linguaggio.
- * Per ogni tabella è stato preferito mantenere due soli trigger, per 
- * l'inserimento e per la modifica, al fine di agevolare il lettore.
+ * dei vincoli non esprimibili nella creazione delle tabelle.
+ * Per ogni tabella è stato preferito definire massimo due trigger, uno per 
+ * l'inserimento e l'altro per la modifica, al fine di agevolare il lettore.
  * Questo rende lo script meno frastagliato ma costringe ad una struttura
  * interna non sempre elegante (esempio, prima vengono inserite tutte le
  * dichiarazioni di variabili utili per tutti i controlli da eseguire 
@@ -305,9 +304,7 @@ Rosa;
  * I trigger per gli inserimenti quindi controllano il formato del 
  * codice e, qualora non sia corretto, lo assegnano, individuando l'indice 
  * minimo tra quelli disponibili. Non è, quindi, detto che le istanze  
- * cronologicamente successive abbiano codice maggiore. In caso di 
- * assegnazione viene restituito uno warning affinchè sia evidente 
- * l'avvenimento.
+ * cronologicamente successive abbiano codice maggiore.
  */
  
 DELIMITER $$
@@ -492,9 +489,8 @@ BEGIN
     
     -- Controllo genere concordante tra Squadra e Torneo
 	SELECT genere INTO genere_squadra FROM Squadra WHERE codice = NEW.squadra;
-    SELECT T.genere INTO genere_torneo FROM Torneo T WHERE T.codice = 
-		(SELECT F.torneo FROM Fase F WHERE F.codice = 
-			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.Insieme_squadre));
+    SELECT genere INTO genere_torneo FROM Torneo WHERE codice = 
+		(SELECT torneo FROM squadra_iscrizioni WHERE insieme = NEW.insieme_squadre);
     IF genere_squadra <> genere_torneo
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='5000';
 	END IF;
@@ -510,7 +506,7 @@ BEGIN
     OPEN giocatore_cursor;
     check_giocatore_gia_iscritto: LOOP -- leave sottointesa: uscita con la exit dell'handler al termine dei fetch del cursore
 		FETCH giocatore_cursor INTO giocatore_check;
-        IF (SELECT COUNT(giocatore) FROM (SELECT R.giocatore FROM Rosa R WHERE R.giocatore = giocatore_check AND R.squadra IN (SELECT squadra FROM Raggruppamento WHERE insieme_squadre = NEW.insieme_squadre))giocatore_times)  <> 1
+        IF (SELECT COUNT(giocatore) FROM (SELECT R.giocatore FROM Rosa R WHERE R.giocatore = giocatore_check AND R.insieme_squadre = NEW.insieme_squadre) giocatore_times)  <> 1
 		THEN
 			SET errmsg = CONCAT("Giocatore già presente nell'insieme di squadre. Il giocatore ", giocatore_check, " è già presente nel'insieme ", NEW.insieme_squadre);
 			SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO = '5008';
@@ -532,10 +528,9 @@ BEGIN
 	DECLARE EXIT HANDLER FOR NOT FOUND BEGIN END;
     
     -- Controllo genere concordante tra Squadra e Torneo
-	SELECT genere INTO genere_squadra FROM Squadra WHERE codice = OLD.squadra;
-    SELECT T.genere INTO genere_torneo FROM Torneo T WHERE T.codice = 
-		(SELECT F.torneo FROM Fase F WHERE F.codice = 
-			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.Insieme_squadre));
+	SELECT genere INTO genere_squadra FROM Squadra WHERE codice = NEW.squadra;
+    SELECT genere INTO genere_torneo FROM Torneo WHERE codice = 
+		(SELECT torneo FROM squadra_iscrizioni WHERE insieme = NEW.insieme_squadre);
     IF genere_squadra <> genere_torneo
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='5000';
 	END IF;
@@ -551,7 +546,7 @@ BEGIN
     OPEN giocatore_cursor;
     check_giocatore_gia_iscritto: LOOP -- leave sottointesa: uscita con la exit dell'handler al termine dei fetch del cursore
 		FETCH giocatore_cursor INTO giocatore_check;
-        IF (SELECT COUNT(giocatore) FROM (SELECT R.giocatore FROM Rosa R WHERE R.giocatore = giocatore_check AND R.squadra IN (SELECT squadra FROM Raggruppamento WHERE insieme_squadre = NEW.insieme_squadre))giocatore_times)  <> 1
+        IF (SELECT COUNT(giocatore) FROM (SELECT R.giocatore FROM Rosa R WHERE R.giocatore = giocatore_check AND R.insieme_squadre = NEW.insieme_squadre) giocatore_times)  <> 1
 		THEN
 			SET errmsg = CONCAT("Giocatore già presente nell'insieme di squadre. Il giocatore ", giocatore_check, " è già presente nel'insieme ", NEW.insieme_squadre);
 			SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO = '5008';
@@ -590,6 +585,15 @@ BEGIN
 	END IF;
 END $$
 
+CREATE TRIGGER TR_INS_Classifica BEFORE INSERT ON Classifica
+FOR EACH ROW
+BEGIN
+	-- Controllo che squadra appartenga all'insieme di squadre
+    IF (NEW.squadra NOT IN (SELECT squadra FROM Raggruppamento WHERE insieme = NEW.insieme))
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Squadra non partecipante alla fase nell'insieme specificato", MYSQL_ERRNO='5007' ;
+    END IF;
+END $$
+
 /*
  * Inesrimenti di tesserati (Giocatore e Arbitro).
  * Le tessere sono assegnate seguendo l'ordine cronologico. Le prime tessere
@@ -616,7 +620,8 @@ FOR EACH ROW
 BEGIN
 	DECLARE genere_squadra ENUM('M', 'F', 'N');
     DECLARE gen_squad_cursor CURSOR FOR 
-		SELECT genere FROM Rosa WHERE giocatore = OLD.tessera;
+		SELECT genere FROM Squadra WHERE codice IN
+			(SELECT squadra FROM Rosa WHERE giocatore = OLD.tessera);
 	DECLARE EXIT HANDLER FOR NOT FOUND BEGIN END;
     
 	-- Controllo genere compatibile tra Giocatore e Squadra
@@ -636,10 +641,6 @@ FOR EACH ROW
 BEGIN
 	DECLARE genere_squadra	 ENUM('M','F','N');
     DECLARE genere_giocatore ENUM('M','F','N');
-    DECLARE insieme_check	 VARCHAR(7);
-    DECLARE insieme_cursor	 CURSOR FOR 
-		SELECT insieme FROM Raggruppamento WHERE squadra = NEW.squadra;
-	DECLARE EXIT HANDLER FOR NOT FOUND BEGIN END;
     
 	-- Controllo numero_maglia appartenente al dominio 
     IF NEW.numero_maglia > 99		-- Data la tipologia UNSIGNED del dato non occorre il controllo: (... < 0)
@@ -654,14 +655,8 @@ BEGIN
 	END IF;
     
     -- Controllo che le squadre dell'insieme abbiano tutti giocatori differenti
-    OPEN insieme_cursor;
-    giocatore_insieme_check: LOOP
-		FETCH insieme_cursor INTO insieme_check;
-		IF (SELECT ALL COUNT(GI.giocatore) FROM 
-				(SELECT giocatore FROM giocatori_insieme WHERE insieme = insieme_check 
-					) GI 
-			WHERE GI.giocatore = NEW.giocatore) <> 1
-		THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Giocatore già presente nell'insieme di squadre.", MYSQL_ERRNO = '5008';
+	IF (SELECT ALL COUNT(giocatore) FROM Rosa WHERE insieme_squadre = NEW.insieme_squadre AND giocatore = NEW.giocatore) <> 1
+	THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Giocatore già presente nell'insieme di squadre.", MYSQL_ERRNO = '5008';
 	END IF;
 END $$
 
@@ -684,10 +679,7 @@ BEGIN
 	END IF;
     
 	-- Controllo che le squadre abbiano tutti giocatori differenti
-    IF (SELECT ALL COUNT(giocatore) FROM 
-		(SELECT giocatore FROM giocatori_insieme WHERE insieme IN 
-			(SELECT insieme FROM Raggruppamento WHERE squadra = NEW.squadra)) GI
-		WHERE giocatore = NEW.giocatore) <> 1
+    IF (SELECT ALL COUNT(giocatore) FROM Rosa WHERE insieme_squadre = NEW.insieme_squadre AND giocatore = NEW.giocatore) <> 0
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Giocatore già presente nell'insieme di squadre.", MYSQL_ERRNO = '5008';
 	END IF;
 END $$
@@ -732,8 +724,7 @@ BEGIN
 
 	-- Controllo formato codice
     IF NEW.codice NOT LIKE 'P-_%' OR NEW.codice IS NULL 
-    THEN
-		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Formato codice non accettabile. Il codice inserito come nuovo codice non rispetta il formato per il campo.", MYSQL_ERRNO='5009';
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Formato codice non accettabile. Il codice inserito come nuovo codice non rispetta il formato per il campo.", MYSQL_ERRNO='5009';
 	END IF;
     
     -- Controllo vincolo: squadre giocanti diverse
@@ -761,23 +752,51 @@ BEGIN
     DECLARE somma_gol 				TINYINT UNSIGNED;
     DECLARE gol_squadra_giocatore 	TINYINT UNSIGNED;
     DECLARE warnmsg					VARCHAR(127);
+    DECLARE espulsioni_mancanti		INT UNSIGNED;
+    DECLARE giornata_inizio_esp		INT UNSIGNED;
+    DECLARE ultima_giornata			INT UNSIGNED;
     
     -- Controllo ammonizioni appartenenti a {0,1,2}
     IF NEW.ammonizioni NOT IN (0,1,2)
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Numero ammonizioni fuori dal dominio {0, 1, 2}.", MYSQL_ERRNO=5001;
     END IF;
     
+    -- Controllo espulsioni pari ad almeno 1 se ammonizioni pari a 2
+    IF NEW.ammonizioni = 2 AND NEW.espulsione.giornate < 1
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Giornate espulsione insufficienti dato ammonizioni pari a 2.", MYSQL_ERRNO='5010';
+    END IF;
+    
     -- Controllo che somma dei gol corrisponda a punteggio partita
-	SELECT SUM(gol)+NEW.gol INTO somma_gol FROM Statistiche WHERE partita = NEW.partita AND giocatore IN 
+	SELECT SUM(gol)+NEW.gol INTO somma_gol FROM Statistiche WHERE partita = NEW.partita AND giocatore IN 					
 		(SELECT DISTINCT giocatore FROM Rosa WHERE squadra IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore));
 	SELECT squadra_casa INTO squadra_casa FROM Partita WHERE codice = NEW.partita;
-	SELECT IF(squadra_casa IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore), gol_casa, gol_ospite) 	-- la condizione che la squadra di casa sia una di quelle del giocatore è sufficiente dato il vincolo di singola partecipazoine del giocatore ad un insieme di squadra 
+	SELECT IF(squadra_casa IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore), gol_casa, gol_ospite) 	-- la condizione che la squadra di casa sia una di quelle del giocatore è sufficiente dato il vincolo di singola partecipazione del giocatore ad un insieme di squadra 
 		INTO gol_squadra_giocatore FROM Partita WHERE codice = NEW.partita;
     IF somma_gol <> gol_squadra_giocatore
     THEN
 		SET errmsg = CONCAT("Punteggio inconsistente. Il punteggio della partita non corrisponde alla somma dei gol: (somma gol) - (gol squadra) = ", (somma_gol - gol_squadra_giocatore));
 		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO='5005';
 	END IF;
+        
+    -- Inserimento espulsioni
+    -- Nel caso in cui le giornate di espulsione siano maggiori di zero allora,
+    -- viene eseguito un ciclo che aggiunge ad Espulsione istanze coerenti fintantoché 
+    -- o sono state inserite tutte le giornate di espulsione oppure si è giurni all'ultima 
+    -- giornata della fase per l'insieme.
+    IF NEW.espulsione_giornate <> 0
+    THEN
+		SET espulsioni_aggiunte = 0;
+        SELECT Giornata.numero INTO giornata_inizio_espulsione FROM Giornata WHERE Giornata.codice = (SELECT Partita.giornata FROM Partita WHERE Partita.codice = NEW.partita);
+        SELECT MAX(numero) INTO ultima_giornata FROM partite_torneo WHERE insieme = (SELECT insieme FROM partite_torneo WHERE partita = NEW.partita);
+		insert_espulsioni: WHILE (espulsioni_aggiunte <> NEW.espulsione_giornate OR giornata_inizio_espulsione + espulsioni_aggiunte < ultima_giornata)		
+        DO
+			SET espulsioni_aggiunte = espulsioni_aggiunte +1;
+			INSERT INTO Espulsione (giornata, giocatore) 
+            VALUES ((SELECT giornata FROM partite_torneo WHERE numero = giornata_inizio_espulsione + espulsioni_aggiunte 
+				AND insieme = (SELECT insieme FROM partite_torneo WHERE partita = NEW.partita)),
+                NEW.giocatore);
+        END WHILE;
+	END IF;		
 END $$
 
 CREATE TRIGGER TR_UPD_Statistiche BEFORE UPDATE ON Statistiche
@@ -793,8 +812,13 @@ BEGIN
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Numero ammonizioni fuori dal dominio {0, 1, 2}.", MYSQL_ERRNO=5001;
     END IF;
     
+    -- Controllo espulsioni pari ad almeno 1 se ammonizioni pari a 2
+    IF NEW.ammonizioni = 2 AND NEW.espulsione.giornate < 1
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Giornate espulsione insufficienti dato ammonizioni pari a 2.", MYSQL_ERRNO='5010';
+    END IF;
+    
     -- Controllo che somma dei gol corrisponda a punteggio partita
-	SELECT SUM(gol)-OLD.gol+NEW.gol INTO somma_gol FROM Statistiche WHERE partita = NEW.partita AND giocatore IN 
+	SELECT IF(OLD.partita = NEW.partita, SUM(gol)-OLD.gol+NEW.gol, SUM(gol)+NEW.gol) INTO somma_gol FROM Statistiche WHERE partita = NEW.partita AND giocatore IN 
 		(SELECT DISTINCT giocatore FROM Rosa WHERE squadra IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore));
 	SELECT squadra_casa INTO squadra_casa FROM Partita WHERE codice = NEW.partita;
 	SELECT IF(squadra_casa IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore), gol_casa, gol_ospite) 	-- la condizione che la squadra di casa sia una di quelle del giocatore è sufficiente dato il vincolo di singola partecipazoine del giocatore ad un insieme di squadre 
@@ -805,8 +829,26 @@ BEGIN
 		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO='5005';
 	END IF;
 END$$
-DELIMITER ;
 
+CREATE TRIGGER TR_INS_Espulsione BEFORE INSERT ON Espulsione
+FOR EACH ROW
+BEGIN
+	-- Controllo che il giocatore partecipi all'insieme
+    IF (NEW.giocatore NOT IN (SELECT giocatore FROM Rosa WHERE insieme_squadre = (SELECT Giornata.insieme_squadre FROM Giornata WHERE Giornata.codice = NEW.giornata)))
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Giocatore non partecipante all'insieme di squadre proprio della giornata inserita.", MYSQL_ERRNO = '5006';
+    END IF;
+END $$
+
+CREATE TRIGGER TR_UPD_Espulsione BEFORE UPDATE ON Espulsione
+FOR EACH ROW
+BEGIN
+	-- Controllo che il giocatore partecipi all'insieme
+    IF (NEW.giocatore NOT IN (SELECT giocatore FROM Rosa WHERE insieme_squadre = (SELECT Giornata.insieme_squadre FROM Giornata WHERE Giornata.codice = NEW.giornata)))
+    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Giocatore non partecipante all'insieme di squadre proprio della giornata inserita.", MYSQL_ERRNO = '5006';
+    END IF;
+END $$
+
+DELIMITER ;
 /*
  * SEZIONE DEDICATA AGLI INSERIMENTI
  */
