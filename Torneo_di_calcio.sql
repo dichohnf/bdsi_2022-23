@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS Fase(
     modalita	ENUM('Girone','Eliminazione') NOT NULL,
     scontri		TINYINT UNSIGNED 
 				DEFAULT 1 NOT NULL,
+	indice		TINYINT UNSIGNED DEFAULT 1 NOT NULL,
                 
 	UNIQUE (torneo, nome),
 	FOREIGN KEY (torneo)
@@ -99,6 +100,29 @@ CREATE TABLE IF NOT EXISTS Giornata(
         ON UPDATE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS Classifica (
+	insieme_squadre		VARCHAR(7),
+    giornata			VARCHAR(7),
+    squadra				VARCHAR(8),
+    vittorie			TINYINT UNSIGNED NOT NULL,
+    pareggi				TINYINT UNSIGNED NOT NULL,
+    sconfitte			TINYINT UNSIGNED NOT NULL,
+    
+    PRIMARY KEY (insieme_squadre, giornata, squadra),
+    FOREIGN KEY (insieme_squadre)
+		REFERENCES Insisme_squadre(codice)
+        ON DELETE NO ACTION
+        ON UPDATE CASCADE,
+	FOREIGN KEY (giornata)
+		REFERENCES Giornata(codice)
+        ON DELETE NO ACTION
+        ON UPDATE CASCADE,
+	FOREIGN KEY (squadra)
+		REFERENCES Squadra(codice)
+        ON DELETE NO ACTION
+        ON UPDATE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS Giocatore(
 	tessera			SMALLINT UNSIGNED PRIMARY KEY,
 	nome			VARCHAR(100) NOT NULL,		-- La dimensione elevata permette l'inserimento di secondi nomi
@@ -110,21 +134,25 @@ CREATE TABLE IF NOT EXISTS Giocatore(
 );
 
 CREATE TABLE IF NOT EXISTS Rosa(
+	insieme_squadre	VARCHAR(7),
 	squadra			VARCHAR(8),
     giocatore		SMALLINT UNSIGNED ,
     numero_maglia 	TINYINT UNSIGNED,
     
-    PRIMARY KEY(squadra, giocatore),
+    PRIMARY KEY(insieme_squadre, squadra, giocatore),
 	UNIQUE (squadra, numero_maglia),
+	FOREIGN KEY (insieme_squadre)
+		REFERENCES Insisme_squadre(codice)
+        ON DELETE NO ACTION
+        ON UPDATE CASCADE,
     FOREIGN KEY (squadra)
 		REFERENCES Squadra(codice)
-        ON DELETE CASCADE
+        ON DELETE NO ACTION
         ON UPDATE CASCADE,
 	FOREIGN KEY (giocatore)
 		REFERENCES Giocatore(tessera)
-        ON DELETE CASCADE
+        ON DELETE NO ACTION
         ON UPDATE CASCADE
-
 );
 
 CREATE TABLE IF NOT EXISTS Arbitro(
@@ -188,6 +216,21 @@ CREATE TABLE IF NOT EXISTS Statistiche(
 	FOREIGN KEY(partita)
 		REFERENCES Partita(codice)
         ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS Espulsione (
+	giornata	VARCHAR(7),
+	giocatore	SMALLINT UNSIGNED,
+    
+    PRIMARY KEY(giornata, giocatore),
+    FOREIGN KEY(giornata)
+		REFERENCES Giornata(codice)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    FOREIGN KEY(giocatore)
+		REFERENCES Giocatore(tessera)
+        ON DELETE NO ACTION
         ON UPDATE CASCADE
 );
 
