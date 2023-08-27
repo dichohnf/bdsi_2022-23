@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS Fase(
 	indice		TINYINT UNSIGNED DEFAULT 1 NOT NULL,
                 
 	UNIQUE (torneo, nome),
+    UNIQUE (torneo, indice),
 	FOREIGN KEY (torneo)
 		REFERENCES Torneo(codice)
 		ON DELETE CASCADE
@@ -110,7 +111,7 @@ CREATE TABLE IF NOT EXISTS Classifica (
     
     PRIMARY KEY (insieme_squadre, giornata, squadra),
     FOREIGN KEY (insieme_squadre)
-		REFERENCES Insisme_squadre(codice)
+		REFERENCES Insieme_squadre(codice)
         ON DELETE NO ACTION
         ON UPDATE CASCADE,
 	FOREIGN KEY (giornata)
@@ -140,9 +141,9 @@ CREATE TABLE IF NOT EXISTS Rosa(
     numero_maglia 	TINYINT UNSIGNED,
     
     PRIMARY KEY(insieme_squadre, squadra, giocatore),
-	UNIQUE (squadra, numero_maglia),
+	UNIQUE (insieme_squadre, squadra, numero_maglia),
 	FOREIGN KEY (insieme_squadre)
-		REFERENCES Insisme_squadre(codice)
+		REFERENCES Insieme_squadre(codice)
         ON DELETE NO ACTION
         ON UPDATE CASCADE,
     FOREIGN KEY (squadra)
@@ -172,8 +173,6 @@ CREATE TABLE IF NOT EXISTS Partita(
     giornata			VARCHAR(7) NOT NULL,
     giorno 				DATE NOT NULL,
     ora					TIME NOT NULL,
-    gol_casa			TINYINT UNSIGNED,
-    gol_ospite			TINYINT UNSIGNED,
     campo				VARCHAR(5) NOT NULL,
     arbitro				SMALLINT UNSIGNED  NOT NULL,
     
@@ -200,21 +199,32 @@ CREATE TABLE IF NOT EXISTS Partita(
 	UNIQUE (squadra_casa, squadra_ospite, giornata)
 );
 
+CREATE TABLE IF NOT EXISTS Partita_giocata (
+	partita		VARCHAR(9) PRIMARY KEY,
+	gol_casa	TINYINT UNSIGNED NOT NULL,
+    gol_ospite	TINYINT UNSIGNED NOT NULL,
+    
+    FOREIGN KEY (partita)
+    REFERENCES Partita(codice)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS Statistiche(
 	giocatore			SMALLINT UNSIGNED NOT NULL,
-    partita				VARCHAR(9) NOT NULL,
+    partita_giocata		VARCHAR(9) NOT NULL,
     gol					TINYINT UNSIGNED DEFAULT 0 NOT NULL,
     assist				TINYINT UNSIGNED DEFAULT 0 NOT NULL,
 	ammonizioni			TINYINT UNSIGNED DEFAULT 0 NOT NULL,
 	espulsione_giornate	TINYINT UNSIGNED DEFAULT 0 NOT NULL,
     
-    PRIMARY KEY (giocatore, partita),
+    PRIMARY KEY (giocatore, partita_giocata),
     FOREIGN KEY(giocatore)
 		REFERENCES Giocatore(tessera)
         ON DELETE NO ACTION
         ON UPDATE CASCADE,
-	FOREIGN KEY(partita)
-		REFERENCES Partita(codice)
+	FOREIGN KEY(partita_giocata)
+		REFERENCES Partita_giocata(partita)
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
@@ -254,13 +264,14 @@ CREATE VIEW tesseramenti
  */
 CREATE VIEW tornei_terminati
 (codice, nome, edizione, genere, tipologia) AS
-(SELECT * FROM Torneo WHERE codice IN
+(SELECT codice, nome, edizione, genere, tipologia FROM Torneo WHERE codice IN
 	(SELECT torneo FROM Fase WHERE codice IN 
 		(SELECT fase FROM Insieme_squadre WHERE codice IN 
-			(SELECT insieme_squadre FROM Giornata WHERE
-			codice IN (SELECT giornata FROM Partita) AND													-- Giornata con almeno una partita definita
-            codice NOT IN (SELECT giornata FROM Partita WHERE gol_casa IS NULL OR gol_ospite IS NULL)))));	-- Giornata con nessuna partita (NOT IN) non terminata (IS NULL) 
-            
+			(SELECT insieme_squadre FROM Giornata WHERE codice IN												-- Giornate con almeno una partita e che ha tutte le partite già giocate.
+				(SELECT giornata FROM Partita)																	-- Tutte le partite
+			AND codice NOT IN
+				(SELECT giornata FROM Partita WHERE codice NOT IN (SELECT partita FROM Partita_giocata))))));	-- Partite non ancora giocate, ovvero partite che non hanno un'istanza corrispondente in Partita_giocata
+                
 /*
  * La successiva vista rappresenta l'insieme dei codici delle squadre partecipanti
  * associati ai tornei a cui partecipano e in quali fasi dei suddetti tornei.
@@ -283,7 +294,7 @@ NATURAL JOIN
  SELECT torneo, fase, insieme, giornata, numero_giornata, partita, squadra_casa, squadra_ospite FROM 
  (SELECT F.torneo AS torneo, F.codice AS fase, I.codice AS insieme FROM Fase F, Insieme_squadre I WHERE F.codice = I.fase) AS TFI 
  NATURAL JOIN
- (SELECT G.insieme AS insieme, G.codice AS giornata, G.numero AS numero_giornata, P.codice AS partita, P.squadra_casa, P.squadra_ospite FROM Giornata G, Partita P WHERE P.giornata = G.codice);
+ (SELECT G.insieme_squadre AS insieme, G.codice AS giornata, G.numero AS numero_giornata, P.codice AS partita, P.squadra_casa, P.squadra_ospite FROM Giornata G, Partita P WHERE P.giornata = G.codice) AS GP;
 
 /*
  * SEZIONE DEDICATA AI TRIGGER
@@ -490,7 +501,7 @@ BEGIN
     -- Controllo genere concordante tra Squadra e Torneo
 	SELECT genere INTO genere_squadra FROM Squadra WHERE codice = NEW.squadra;
     SELECT genere INTO genere_torneo FROM Torneo WHERE codice = 
-		(SELECT torneo FROM squadra_iscrizioni WHERE insieme = NEW.insieme_squadre);
+		(SELECT DISTINCT torneo FROM squadra_iscrizioni WHERE insieme = NEW.insieme_squadre);
     IF genere_squadra <> genere_torneo
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Genere discorde. Il genere della squadra e del torneo devono essere concordi.', MYSQL_ERRNO='5000';
 	END IF;
@@ -588,8 +599,8 @@ END $$
 CREATE TRIGGER TR_INS_Classifica BEFORE INSERT ON Classifica
 FOR EACH ROW
 BEGIN
-	-- Controllo che squadra appartenga all'insieme di squadre
-    IF (NEW.squadra NOT IN (SELECT squadra FROM Raggruppamento WHERE insieme = NEW.insieme))
+	-- Controllo che squadra appartenga all'insieme di squadre 
+    IF (NEW.squadra NOT IN (SELECT squadra FROM Raggruppamento WHERE insieme = NEW.insieme_squadre))
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Squadra non partecipante alla fase nell'insieme specificato", MYSQL_ERRNO='5007' ;
     END IF;
 END $$
@@ -655,7 +666,7 @@ BEGIN
 	END IF;
     
     -- Controllo che le squadre dell'insieme abbiano tutti giocatori differenti
-	IF (SELECT ALL COUNT(giocatore) FROM Rosa WHERE insieme_squadre = NEW.insieme_squadre AND giocatore = NEW.giocatore) <> 1
+	IF (SELECT ALL COUNT(giocatore) FROM Rosa WHERE insieme_squadre = NEW.insieme_squadre AND giocatore = NEW.giocatore) > 1
 	THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Giocatore già presente nell'insieme di squadre.", MYSQL_ERRNO = '5008';
 	END IF;
 END $$
@@ -731,30 +742,68 @@ BEGIN
     IF NEW.squadra_casa = NEW.squadra_ospite
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Squadre uguali. Le partite devono essere formate da due squadre distinte.", MYSQL_ERRNO=5003;
     END IF;
-       
-    -- Controllo che somma dei gol corrisponda a punteggio partita
-    SELECT SUM(gol) INTO somma_gol_casa FROM Statistiche WHERE partita = NEW.codice AND giocatore IN
-		(SELECT giocatore FROM Rosa WHERE squadra = NEW.squadra_casa);
-    SELECT SUM(gol) INTO somma_gol_ospite FROM Statistiche WHERE partita = NEW.codice AND giocatore IN
-		(SELECT giocatore FROM Rosa WHERE squadra = NEW.squadra_ospite);    
-    IF somma_gol_casa <> NEW.gol_casa OR somma_gol_ospite <> NEW.gol_ospite
-    THEN
-		SET errmsg = CONCAT("Punteggio inconsistente. Il punteggio della partita non corrisponde alla somma dei gol: ", CONCAT(NEW.gol_casa, '-', NEW.gol_ospite), " invece di ", CONCAT(somma_gol_casa, '-', somma_gol_ospite));
-		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errnmsg, MYSQL_ERRNO='5005';
+END $$
+
+CREATE TRIGGER TR_INS_Partita_giocata BEFORE INSERT ON Partita_giocata
+FOR EACH ROW
+BEGIN
+	DECLARE insieme			VARCHAR(7);
+    DECLARE giornata		VARCHAR(7);
+    DECLARE numero_giornata TINYINT UNSIGNED;
+    DECLARE squadra_casa	VARCHAR(8);
+    DECLARE squadra_ospite	VARCHAR(8);
+    DECLARE vittorie		TINYINT UNSIGNED;
+    DECLARE pareggi			TINYINT UNSIGNED;
+    DECLARE sconfitte		TINYINT UNSIGNED;
+    
+    SELECT insieme,giornata,numero_giornata INTO insieme,giornata,numero_giornata FROM partite_torneo WHERE partita = NEW.partita;
+    SELECT squadra_casa, squadra_ospite INTO squadra_casa, squadra_ospite FROM Partita WHERE codice = NEW.partita;
+    
+    -- Squadra casa
+    SELECT (0,0,0) INTO vittorie, pareggi, sconfitte;
+    IF numero_giornata = 0
+    THEN SELECT (0,0,0) INTO vittorie,pareggi,sconfitte;
+    ELSE
+		SELECT C.vittorie, C.pareggi, C.sconfitte INTO vittorie, pareggi, sconfitte FROM Classifica C WHERE
+			C.insieme 	= insieme AND 
+			C.giornata 	= (SELECT G.codice FROM Giornata G WHERE G.insieme = NEW.insieme AND G.numero = numero_giornata-1) AND 
+			C.squadra 	= squadra_casa;
 	END IF;
+	IF NEW.gol_casa < NEW.gol_ospite 
+	THEN SET sconfitte = scontitte +1;
+    ELSEIF NEW.gol_casa > NEW.gol_ospite
+    THEN SET vittorie = vittorie +1;
+    ELSE SET pareggi = pareggi +1;
+    END IF;
+	INSERT INTO Classifica (insieme, giornata, squadra, vittorie, pareggi, sconfitte) 
+    VALUES (insieme, giornata, squadra_casa, vittorie, sconfitte, pareggi);
+END $$
+
+CREATE PROCEDURE ins_classifica (IN insieme VARCHAR(7), IN giornata VARCHAR(7), IN squadra VARCHAR(8), )
+
+CREATE TRIGGER TR_UPD_Partita_giocata AFTER UPDATE ON Partita_giocata
+FOR EACH ROW
+
+BEGIN
+END $$
+
+CREATE TRIGGER TR_DEL_Partita_giocata BEFORE DELETE ON Partita_giocata
+FOR EACH ROW
+BEGIN
+	CALL calcolo_classifica();
 END $$
 
 CREATE TRIGGER TR_INS_Statistiche BEFORE INSERT ON Statistiche
 FOR EACH ROW
 BEGIN 
-	DECLARE errmsg 					VARCHAR(127);
-    DECLARE squadra_casa			VARCHAR(8);
-    DECLARE somma_gol 				TINYINT UNSIGNED;
-    DECLARE gol_squadra_giocatore 	TINYINT UNSIGNED;
-    DECLARE warnmsg					VARCHAR(127);
-    DECLARE espulsioni_mancanti		INT UNSIGNED;
-    DECLARE giornata_inizio_esp		INT UNSIGNED;
-    DECLARE ultima_giornata			INT UNSIGNED;
+	DECLARE errmsg 						VARCHAR(127);
+    DECLARE squadra_casa				VARCHAR(8);
+    DECLARE somma_gol 					TINYINT UNSIGNED;
+    DECLARE gol_squadra_giocatore	 	TINYINT UNSIGNED;
+    DECLARE warnmsg						VARCHAR(127);
+    DECLARE espulsioni_aggiunte			INT UNSIGNED;
+    DECLARE giornata_inizio_espulsione	INT UNSIGNED;
+    DECLARE ultima_giornata				INT UNSIGNED;
     
     -- Controllo ammonizioni appartenenti a {0,1,2}
     IF NEW.ammonizioni NOT IN (0,1,2)
@@ -762,20 +811,17 @@ BEGIN
     END IF;
     
     -- Controllo espulsioni pari ad almeno 1 se ammonizioni pari a 2
-    IF NEW.ammonizioni = 2 AND NEW.espulsione.giornate < 1
+    IF NEW.ammonizioni = 2 AND NEW.espulsione_giornate < 1
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Giornate espulsione insufficienti dato ammonizioni pari a 2.", MYSQL_ERRNO='5010';
     END IF;
     
-    -- Controllo che somma dei gol corrisponda a punteggio partita
-	SELECT SUM(gol)+NEW.gol INTO somma_gol FROM Statistiche WHERE partita = NEW.partita AND giocatore IN 					
-		(SELECT DISTINCT giocatore FROM Rosa WHERE squadra IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore));
-	SELECT squadra_casa INTO squadra_casa FROM Partita WHERE codice = NEW.partita;
-	SELECT IF(squadra_casa IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore), gol_casa, gol_ospite) 	-- la condizione che la squadra di casa sia una di quelle del giocatore è sufficiente dato il vincolo di singola partecipazione del giocatore ad un insieme di squadra 
-		INTO gol_squadra_giocatore FROM Partita WHERE codice = NEW.partita;
-    IF somma_gol <> gol_squadra_giocatore
-    THEN
-		SET errmsg = CONCAT("Punteggio inconsistente. Il punteggio della partita non corrisponde alla somma dei gol: (somma gol) - (gol squadra) = ", (somma_gol - gol_squadra_giocatore));
-		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO='5005';
+    -- Controllo giocatore possa partecipare a partita
+    IF NEW.giocatore NOT IN 
+		(SELECT giocatore FROM Rosa WHERE insieme_squadre = 
+			(SELECT DISTINCT insieme FROM partite_torneo WHERE partita = NEW.partita_giocata))
+	THEN
+		SET errmsg = CONCAT("Giocatore ", NEW.giocatore, " non partecipante alla partita ", NEW.partita_giocata);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT =errmsg, MYSQL_ERRNO = '5006';
 	END IF;
         
     -- Inserimento espulsioni
@@ -786,14 +832,16 @@ BEGIN
     IF NEW.espulsione_giornate <> 0
     THEN
 		SET espulsioni_aggiunte = 0;
-        SELECT Giornata.numero INTO giornata_inizio_espulsione FROM Giornata WHERE Giornata.codice = (SELECT Partita.giornata FROM Partita WHERE Partita.codice = NEW.partita);
-        SELECT MAX(numero) INTO ultima_giornata FROM partite_torneo WHERE insieme = (SELECT insieme FROM partite_torneo WHERE partita = NEW.partita);
-		insert_espulsioni: WHILE (espulsioni_aggiunte <> NEW.espulsione_giornate OR giornata_inizio_espulsione + espulsioni_aggiunte < ultima_giornata)		
+        
+        SELECT numero_giornata INTO giornata_inizio_espulsione FROM partite_torneo WHERE partita = NEW.partita_giocata;
+        SELECT MAX(numero_giornata) INTO ultima_giornata FROM partite_torneo WHERE insieme IN
+			((SELECT DISTINCT PT2.insieme FROM partite_torneo PT2 WHERE PT2.partita = NEW.partita_giocata));
+		insert_espulsioni: WHILE (espulsioni_aggiunte < NEW.espulsione_giornate AND giornata_inizio_espulsione + espulsioni_aggiunte < ultima_giornata)		
         DO
 			SET espulsioni_aggiunte = espulsioni_aggiunte +1;
 			INSERT INTO Espulsione (giornata, giocatore) 
-            VALUES ((SELECT giornata FROM partite_torneo WHERE numero = giornata_inizio_espulsione + espulsioni_aggiunte 
-				AND insieme = (SELECT insieme FROM partite_torneo WHERE partita = NEW.partita)),
+            VALUES ((SELECT DISTINCT giornata FROM partite_torneo WHERE numero_giornata = giornata_inizio_espulsione + espulsioni_aggiunte 
+				AND insieme = (SELECT DISTINCT insieme FROM partite_torneo WHERE partita = NEW.partita_giocata)),
                 NEW.giocatore);
         END WHILE;
 	END IF;		
@@ -817,34 +865,41 @@ BEGIN
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT="Giornate espulsione insufficienti dato ammonizioni pari a 2.", MYSQL_ERRNO='5010';
     END IF;
     
-    -- Controllo che somma dei gol corrisponda a punteggio partita
-	SELECT IF(OLD.partita = NEW.partita, SUM(gol)-OLD.gol+NEW.gol, SUM(gol)+NEW.gol) INTO somma_gol FROM Statistiche WHERE partita = NEW.partita AND giocatore IN 
-		(SELECT DISTINCT giocatore FROM Rosa WHERE squadra IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore));
-	SELECT squadra_casa INTO squadra_casa FROM Partita WHERE codice = NEW.partita;
-	SELECT IF(squadra_casa IN (SELECT squadra FROM Rosa WHERE giocatore = NEW.giocatore), gol_casa, gol_ospite) 	-- la condizione che la squadra di casa sia una di quelle del giocatore è sufficiente dato il vincolo di singola partecipazoine del giocatore ad un insieme di squadre 
-		INTO gol_squadra_giocatore FROM Partita WHERE codice = NEW.partita;
-    IF somma_gol <> gol_squadra_giocatore
-    THEN
-		SET errmsg = CONCAT("Punteggio inconsistente. Il punteggio della partita non corrisponde alla somma dei gol: (somma gol) - (gol squadra) = ", (somma_gol - gol_squadra_giocatore));
-		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO='5005';
+    -- Controllo giocatore possa partecipare a partita
+    IF NEW.giocatore NOT IN 
+		(SELECT giocatore FROM Rosa WHERE insieme_squadre = 
+			(SELECT DISTINCT insieme FROM partite_torneo WHERE partita = NEW.partita_giocata))
+	THEN
+		SET errmsg = CONCAT("Giocatore ", NEW.giocatore, " non partecipante alla partita ", NEW.partita_giocata);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT =errmsg, MYSQL_ERRNO = '5006';
 	END IF;
 END$$
 
 CREATE TRIGGER TR_INS_Espulsione BEFORE INSERT ON Espulsione
 FOR EACH ROW
 BEGIN
+	DECLARE errmsg VARCHAR(127);
 	-- Controllo che il giocatore partecipi all'insieme
-    IF (NEW.giocatore NOT IN (SELECT giocatore FROM Rosa WHERE insieme_squadre = (SELECT Giornata.insieme_squadre FROM Giornata WHERE Giornata.codice = NEW.giornata)))
-    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Giocatore non partecipante all'insieme di squadre proprio della giornata inserita.", MYSQL_ERRNO = '5006';
+    IF NEW.giocatore NOT IN 
+    (SELECT giocatore FROM Rosa WHERE insieme_squadre = 
+		(SELECT G.insieme_squadre FROM Giornata G WHERE G.codice = NEW.giornata))
+    THEN
+		SET errmsg = CONCAT("Giocatore ", NEW.giocatore, " non partecipante all'insieme di squadre ", (SELECT G.insieme_squadre FROM Giornata G WHERE G.codice = NEW.giornata), ".");
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT =errmsg, MYSQL_ERRNO = '5006';
     END IF;
 END $$
 
 CREATE TRIGGER TR_UPD_Espulsione BEFORE UPDATE ON Espulsione
 FOR EACH ROW
 BEGIN
+	DECLARE errmsg VARCHAR(127);
 	-- Controllo che il giocatore partecipi all'insieme
-    IF (NEW.giocatore NOT IN (SELECT giocatore FROM Rosa WHERE insieme_squadre = (SELECT Giornata.insieme_squadre FROM Giornata WHERE Giornata.codice = NEW.giornata)))
-    THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Giocatore non partecipante all'insieme di squadre proprio della giornata inserita.", MYSQL_ERRNO = '5006';
+    IF NEW.giocatore NOT IN 
+    (SELECT giocatore FROM Rosa WHERE insieme_squadre = 
+		(SELECT G.insieme_squadre FROM Giornata G WHERE G.codice = NEW.giornata))
+    THEN
+		SET errmsg = CONCAT("Giocatore ", NEW.giocatore, " non partecipante all'insieme di squadre ", (SELECT G.insieme_squadre FROM Giornata G WHERE G.codice = NEW.giornata), ".");
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT =errmsg, MYSQL_ERRNO = '5006';
     END IF;
 END $$
 
@@ -864,7 +919,7 @@ INTO TABLE Fase
 FIELDS TERMINATED BY '|'
 OPTIONALLY ENCLOSED BY '+'
 IGNORE 3 LINES
-(codice, nome, modalita, scontri, torneo);
+(codice, nome, modalita, scontri, torneo, indice);
 
 -- I successivi inserimenti saranno tutti importati da file nel formato standard CSV
 LOAD DATA LOCAL INFILE './Popolamento/Insieme_squadre.csv'
@@ -914,7 +969,7 @@ INTO TABLE Rosa
 FIELDS TERMINATED BY ','
 OPTIONALLY ENCLOSED BY '"'
 IGNORE 2 LINES
-(squadra, giocatore, numero_maglia);
+(insieme_squadre, squadra, giocatore, numero_maglia);
 
 -- A causa dei controlli nei trigger di Giornata gli inserimenti di queste devono 
 -- essere successivi agli inserimenti di Raggruppamento, altrimenti il logaritmo
@@ -931,18 +986,46 @@ INTO TABLE Partita
 FIELDS TERMINATED BY ','
 OPTIONALLY ENCLOSED BY '"'
 IGNORE 2 LINES
-(codice, giornata, giorno, ora, squadra_casa, squadra_ospite, arbitro, campo, gol_casa, gol_ospite);
+(codice, giornata, giorno, ora, squadra_casa, squadra_ospite, arbitro, campo);
+
+LOAD DATA LOCAL INFILE './Popolamento/Partita_giocata.csv'
+INTO TABLE Partita_giocata
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+IGNORE 2 LINES
+(partita, gol_casa, gol_ospite); 
+
+LOAD DATA LOCAL INFILE './Popolamento/Statistiche.csv'
+INTO TABLE Statistiche
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+IGNORE 2 LINES
+(partita_giocata, giocatore, gol, assist, ammonizioni, espulsione_giornate); 
+
+/*
+ * SEZIONE PROCEDURE E FUNZIONI
+ */
+ 
+/*
+ * La procedura successiva esegue il ricalcolo della classifica.
+ * Dato che Classifca definisce all'interno del database delle ridondanze
+ * allora occorrono dei meccanismi perchè questa sia sempre aggiornata.
+ * Questa procedura si inserisce in questo contesto, eseguendo il ricalcolo
+ * della classifica nel momento in cui viene chiamata, come ad esempio 
+ * all'inserimento di un'istanza di Partita_giocata
+ */
+DELIMITER $$
+CREATE PROCEDURE calcolo_classifica()
+BEGIN
+END $$
 
 
-
+DELIMITER ; 
 /*
  * La procedura successiva occorre per l'inserimento di Statistiche.
  * Alcuni inserimenti di questa tabella vengono inseriti tramite questa
  * per mostrarne il funzionamento.
  */
-
-INSERT INTO Statistiche (partita, giocatore, gol, assist, ammonizioni)
-VALUES ('P-0', '0', 1, 1, 0);
 
 /*
  * SEZIONE DEDICATA ALLE INTERROGAZIONI
@@ -958,3 +1041,5 @@ VALUES ('P-0', '0', 1, 1, 0);
 # SELECT * FROM Giornata;
 # SELECT * FROM Arbitro;
 # SELECT * FROM Campo;
+
+SELECT * FROM Espulsione;

@@ -1,6 +1,6 @@
-Codice|+Nome+|+Modalita+|+Scontri+|+Torneo+#
-############################################
+Codice|+Nome+|+Modalita+|+Scontri+|+Torneo+|+Indice+#
+#####################################################
 
-NULL|+Fase a gironi+|+Girone+|1|+T-0+
-NULL|+Fase a eliminazione+|+Eliminazione+|2|+T-0+
-NULL|+Fase a eliminazione+|+Eliminazione+|2|+T-1+
+NULL|+Fase a gironi+|+Girone+|1|+T-0+|1
+NULL|+Fase a eliminazione+|+Eliminazione+|2|+T-0+|2
+NULL|+Fase a eliminazione+|+Eliminazione+|2|+T-1+|1
