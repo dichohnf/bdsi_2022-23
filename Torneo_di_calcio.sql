@@ -252,7 +252,6 @@ CREATE TABLE IF NOT EXISTS Espulsione (
  * La successiva vista rappresenta l'inisieme di tutti i tesseramenti.
  * Occorre per operare la creazione di una nuova tessera.
  */
-
 CREATE VIEW tesseramenti
 (tessera, nome, cognome, data, genere) AS 
 (SELECT * FROM Giocatore UNION SELECT * FROM Arbitro);
@@ -295,6 +294,29 @@ NATURAL JOIN
  (SELECT F.torneo AS torneo, F.codice AS fase, I.codice AS insieme FROM Fase F, Insieme_squadre I WHERE F.codice = I.fase) AS TFI 
  NATURAL JOIN
  (SELECT G.insieme_squadre AS insieme, G.codice AS giornata, G.numero AS numero_giornata, P.codice AS partita, P.squadra_casa, P.squadra_ospite FROM Giornata G, Partita P WHERE P.giornata = G.codice) AS GP;
+
+
+/*
+ * La successiva procedura recupera i valori di vittorie, pareggi e sconfitte
+ * in Clasifica della giornata precedente a quella indicata come parametro
+ * per squadra ed insieme specificati e li inserisce nei parametri di output.
+ * Questa funzione occorre nell'inserimeto, modifica e rimosione di partite giocate 
+ * per l'aggioramento della classifica.
+ */
+DELIMITER $$
+CREATE PROCEDURE risultati_giornata_precedente (IN insieme VARCHAR(7), IN giornata VARCHAR(7), IN numero_giornata TINYINT UNSIGNED, IN squadra VARCHAR(8), 
+OUT vittorie TINYINT UNSIGNED, OUT pareggi TINYINT UNSIGNED, OUT sconfitte TINYINT UNSIGNED)
+BEGIN
+	IF numero_giornata = 1
+    THEN SELECT 0,0,0 INTO vittorie,pareggi,sconfitte;
+    ELSE
+		SELECT C.vittorie, C.pareggi, C.sconfitte INTO vittorie, pareggi, sconfitte FROM Classifica C WHERE
+			C.insieme_squadre = insieme AND 
+			C.giornata = (SELECT G.codice FROM Giornata G WHERE G.insieme_squadre = insieme AND G.numero = numero_giornata-1) AND 
+			C.squadra = squadra;
+	END IF;
+END $$
+DELIMITER ;
 
 /*
  * SEZIONE DEDICATA AI TRIGGER
@@ -600,7 +622,7 @@ CREATE TRIGGER TR_INS_Classifica BEFORE INSERT ON Classifica
 FOR EACH ROW
 BEGIN
 	-- Controllo che squadra appartenga all'insieme di squadre 
-    IF (NEW.squadra NOT IN (SELECT squadra FROM Raggruppamento WHERE insieme = NEW.insieme_squadre))
+    IF NEW.squadra NOT IN (SELECT squadra FROM Raggruppamento WHERE insieme_squadre = NEW.insieme_squadre)
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Squadra non partecipante alla fase nell'insieme specificato", MYSQL_ERRNO='5007' ;
     END IF;
 END $$
@@ -744,7 +766,7 @@ BEGIN
     END IF;
 END $$
 
-CREATE TRIGGER TR_INS_Partita_giocata BEFORE INSERT ON Partita_giocata
+CREATE TRIGGER TR_INS_Partita_giocata AFTER INSERT ON Partita_giocata
 FOR EACH ROW
 BEGIN
 	DECLARE insieme			VARCHAR(7);
@@ -756,41 +778,107 @@ BEGIN
     DECLARE pareggi			TINYINT UNSIGNED;
     DECLARE sconfitte		TINYINT UNSIGNED;
     
-    SELECT insieme,giornata,numero_giornata INTO insieme,giornata,numero_giornata FROM partite_torneo WHERE partita = NEW.partita;
-    SELECT squadra_casa, squadra_ospite INTO squadra_casa, squadra_ospite FROM Partita WHERE codice = NEW.partita;
-    
+    -- Aggiornamento classifica
+    SELECT PT.insieme,PT.giornata,PT.numero_giornata,PT.squadra_casa,PT.squadra_ospite 
+    INTO insieme,giornata,numero_giornata,squadra_casa,squadra_ospite 
+    FROM partite_torneo PT WHERE partita = NEW.partita;
     -- Squadra casa
-    SELECT (0,0,0) INTO vittorie, pareggi, sconfitte;
-    IF numero_giornata = 0
-    THEN SELECT (0,0,0) INTO vittorie,pareggi,sconfitte;
-    ELSE
-		SELECT C.vittorie, C.pareggi, C.sconfitte INTO vittorie, pareggi, sconfitte FROM Classifica C WHERE
-			C.insieme 	= insieme AND 
-			C.giornata 	= (SELECT G.codice FROM Giornata G WHERE G.insieme = NEW.insieme AND G.numero = numero_giornata-1) AND 
-			C.squadra 	= squadra_casa;
-	END IF;
-	IF NEW.gol_casa < NEW.gol_ospite 
-	THEN SET sconfitte = scontitte +1;
+    CALL risultati_giornata_precedente(insieme, giornata, numero_giornata, squadra_casa, vittorie, pareggi, sconfitte);
+    IF NEW.gol_casa < NEW.gol_ospite 
+	THEN SET sconfitte = sconfitte +1;
     ELSEIF NEW.gol_casa > NEW.gol_ospite
     THEN SET vittorie = vittorie +1;
     ELSE SET pareggi = pareggi +1;
     END IF;
-	INSERT INTO Classifica (insieme, giornata, squadra, vittorie, pareggi, sconfitte) 
-    VALUES (insieme, giornata, squadra_casa, vittorie, sconfitte, pareggi);
+ 	INSERT INTO Classifica (insieme_squadre, giornata, squadra, vittorie, pareggi, sconfitte) 		-- Si esegue un inserimento alla volta per risparmiare dichiarazioni di variabili
+    VALUES (insieme, giornata, squadra_casa, vittorie, pareggi, sconfitte);
+    -- Squadra ospite
+    CALL risultati_giornata_precedente(insieme, giornata, numero_giornata, squadra_ospite, vittorie, pareggi, sconfitte);
+	IF NEW.gol_casa > NEW.gol_ospite 
+	THEN SET sconfitte = sconfitte +1;
+    ELSEIF NEW.gol_casa < NEW.gol_ospite
+    THEN SET vittorie = vittorie +1;
+    ELSE SET pareggi = pareggi +1;
+    END IF;
+	INSERT INTO Classifica (insieme_squadre, giornata, squadra, vittorie, pareggi, sconfitte) 
+	VALUES (insieme, giornata, squadra_ospite, vittorie, pareggi, sconfitte);
 END $$
 
-CREATE PROCEDURE ins_classifica (IN insieme VARCHAR(7), IN giornata VARCHAR(7), IN squadra VARCHAR(8), )
 
-CREATE TRIGGER TR_UPD_Partita_giocata AFTER UPDATE ON Partita_giocata
+CREATE TRIGGER TR_UPD_Partita_giocata BEFORE UPDATE ON Partita_giocata
 FOR EACH ROW
-
 BEGIN
+	DECLARE insieme					VARCHAR(7);
+    DECLARE numero_giornata 		TINYINT UNSIGNED;
+    DECLARE squadra_casa			VARCHAR(8);
+    DECLARE squadra_ospite			VARCHAR(8);
+    DECLARE casa_vittorie_add 		TINYINT;
+    DECLARE casa_pareggi_add 		TINYINT;
+    DECLARE casa_sconfitte_add 		TINYINT;
+    DECLARE ospite_vittorie_add 	TINYINT;
+    DECLARE ospite_pareggi_add		TINYINT;
+    DECLARE ospite_sconfitte_add	TINYINT;
+    
+    SELECT PT.insieme, PT.numero_giornata INTO insieme, numero_giornata FROM partite_torneo PT WHERE PT.partita = NEW.partita;
+    SELECT squadra_casa, squadra_ospite INTO squadra_casa, squadra_ospite FROM Partita WHERE codice = NEW.partita;
+    SELECT 0,0,0,0,0,0 INTO casa_vittorie_add, casa_pareggi_add, casa_sconfitte_add, ospite_vittorie_add, ospite_pareggi_add, ospite_sconfitte_add;
+    
+    IF OLD.gol_casa < OLD.gol_ospite 
+	THEN SET casa_sconfitte_add = -1;
+         SET ospite_vittorie_add = -1;
+	ELSEIF OLD.gol_casa <> OLD.gol_ospite
+	THEN SET casa_pareggi_add = -1;
+         SET ospite_pareggi_add = -1;
+	ELSE SET casa_vittorie_add = -1;
+         SET ospite_sconfitte_add = -1;
+	END IF;
+    
+    IF NEW.gol_casa < NEW.gol_ospite 
+	THEN SET casa_sconfitte_add = casa_sconfitte_add +1;
+         SET ospite_vittorie_add = ospite_vittorie_add + 1;
+	ELSEIF OLD.gol_casa <> OLD.gol_ospite
+	THEN SET casa_pareggi_add = casa_pareggi_add +1;
+         SET ospite_pareggi_add = ospite_pareggi_add +1;
+	ELSE SET casa_vittorie_add = casa_vittorie_add +1;
+         SET ospite_sconfitte_add = ospite_sconfitte_add +1;
+	END IF;
+    	
+	UPDATE Classifica C SET C.vittorie = (C.vittorie + casa_vittorie_add), C.pareggi = (C.pareggi + casa_pareggi_add), C.sconfitte = (C.sconfitte + casa_sconfitte_add)
+    WHERE C.insieme_squadre = insieme
+    AND C.giornata IN (SELECT PT.giornata FROM partite_torneo PT WHERE PT.insieme = insieme AND PT.numero_giornata >= numero_giornata)
+    AND C.squadra= squadra_casa;
+    
+    UPDATE Classifica C SET C.vittorie = C.vittorie + ospite_vittorie_add, C.pareggi = C.pareggi + ospite_pareggi_add, C.sconfitte = C.sconfitte + ospite_sconfitte_add 
+    WHERE C.insieme_squadre = insieme
+    AND C.giornata IN (SELECT PT.giornata FROM partite_torneo PT WHERE PT.insieme = insieme AND PT.numero_giornata >= numero_giornata)
+    AND C.squadra= squadra_ospite;
 END $$
 
 CREATE TRIGGER TR_DEL_Partita_giocata BEFORE DELETE ON Partita_giocata
 FOR EACH ROW
 BEGIN
-	CALL calcolo_classifica();
+	DECLARE insieme				VARCHAR(7);
+    DECLARE giornata			VARCHAR(7);
+    DECLARE squadra_casa		VARCHAR(8);
+    DECLARE squadra_ospite		VARCHAR(8);
+    DECLARE errmsg				VARCHAR(127);
+		
+    -- Aggiornamento classifica
+    SELECT insieme,giornata INTO insieme,giornata FROM partite_torneo WHERE partita = OLD.partita;
+    SELECT squadra_casa, squadra_ospite INTO squadra_casa, squadra_ospite FROM Partita WHERE codice = OLD.partita;
+    -- Eliminazione impedita se la partita non corrisponde all'ultima giornata in classifica
+    IF giornata NOT IN (SELECT C.giornata FROM Classifica C WHERE C.insieme = insieme AND (C.squadra = squadra_casa OR C.squadra = squadra_ospite))
+    THEN 
+		SET errmsg = CONCAT("Eliminazione del risultato della partita ", OLD.partita, " non permessa. Eliminazione permessa solo per le ultime partite giocate.");
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO='5011';
+    END IF;
+    
+    -- Eliminazione eseguita se si tratta dell'ultima partita
+    DELETE FROM Classifica C WHERE 
+    C.insieme = insieme AND 
+    C.giornata = giornata AND
+    C.squadra IN (squadra_casa, squadra_ospite);
+    
 END $$
 
 CREATE TRIGGER TR_INS_Statistiche BEFORE INSERT ON Statistiche
@@ -1041,5 +1129,18 @@ DELIMITER ;
 # SELECT * FROM Giornata;
 # SELECT * FROM Arbitro;
 # SELECT * FROM Campo;
+# SELECT * FROM Partita_giocata;
 
-SELECT * FROM Espulsione;
+SELECT * FROM Classifica WHERE insieme_squadre = 'I-1';
+
+
+UPDATE Partita_giocata SET gol_casa = 6, gol_ospite= 0
+WHERE partita = 'P-2';
+
+SELECT PT.insieme, PT.numero_giornata FROM partite_torneo PT WHERE PT.partita = 'P-2';
+    SELECT squadra_casa, squadra_ospite FROM Partita WHERE codice = 'P-2';
+    
+    SELECT * FROM Classifica C
+    WHERE C.insieme_squadre = 'I-1'
+    AND C.giornata IN (SELECT PT.giornata FROM partite_torneo PT WHERE PT.insieme = 'I-1' AND PT.numero_giornata >= 1)
+    AND C.squadra= 'S-4';
