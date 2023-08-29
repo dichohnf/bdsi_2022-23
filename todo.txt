@@ -1,43 +1,30 @@
-[PARTIZONAMENTO VERTICALE PARTITA] -> partita, partita giocata {cosicche classifica sia aggiornata al momento di inserimenti di partite giocate o ricalcolata alla modifica: procedura ricalcolo classifica??}
-
-Terminare ALTRI VINCOLI
 Parte Implementazione MySQL: definire e descrivere procedure, trigger ecc
 
+VIEWS: 	V - squalificati prossima partita
+	V - classifica
+	V - prossime partite da giocare
+		[X - capo_cannonieri
+SOMMA		[X - assistmen
+STATISTICHE	[X - piu ammoniti
+		[X - piu espulsi
 
-Commentare script (anche con un minimo di analisi delle prestazioni)
-Terminare file per il POPOLAMENTO: inserimenti a mano, inserimenti tramite .in e .CSV
-VIEWS: 	- squalificati prossima partita
-	- classifica
-	- capo_cannonieri
-	- assistmen
-	- piu ammonizioni ammoniti
-	- piu espulsi
-	- prossime partite da giocare
 	
-PROCEDURES: 	- inserimento statistica giocatore (lancia warning in caso di somma gol differente da punteggio partita e aggiunge istanze in Espulsione {sposta da TR_INS_Statistica a procedura})
+PROCEDURES: 	V - inserimento statistica giocatore (lancia warning in caso di somma gol differente da punteggio partita e aggiunge istanze in Espulsione)
 		- creazione fasi finali
-		- procedura che inserisce le giornate necessarie nella tabella giornate una volta definito il raggruppamento di un insieme di squadre
-		- procedura ricalcolo classifica?
-		-
+		V - procedura che inserisce le giornate necessarie nella tabella giornate una volta definito il raggruppamento di un insieme di squadre
 		
 INTERROGAZIONI:	- trovare i numeri 10 di ogni squadra
 		- giocatori non assegnati a nessuna squadra
 		- giocatori non partecipanti a nessun torneo al momento attivo
 		- squadre non iscritte a nessun torneo
-		- 
+		- ricerca giocatore per nome e mostra iscrizioni a squadre
 		- 
 		
-FUNCTIONS:	- campo casa == campo di gioco
-		- calcolo diffida
-		- 
+FUNCTIONS:	- campo casa == campo di gioco 
 		
 ESEMPI DI FUNZIONAMENTO PER OGNI PROCEDURA/VISTA/TRIGGER/FUNCTION
 
 DICHIARARE CLASSI DI ERRORI
-
-CAPIRE PERCHE NON FUNZIONANO I WARNING NEI TRIGGER
-
-
 
 
 RICHIESTA!
@@ -74,3 +61,11 @@ CORREGGERE PROGETTO: Giornate in relazione con Insieme squadre e non con Fase, a
 
 TRIGGERS:- inserimenti
 	 - update
+	 
+[PARTIZONAMENTO VERTICALE PARTITA] -> partita, partita giocata {cosicche classifica sia aggiornata al momento di inserimenti di partite giocate o ricalcolata alla modifica: procedura ricalcolo classifica??}
+
+Terminare ALTRI VINCOLI
+
+Terminare file per il POPOLAMENTO: inserimenti a mano, inserimenti tramite .in e .CSV
+
+CAPIRE PERCHE NON FUNZIONANO I WARNING NEI TRIGGER

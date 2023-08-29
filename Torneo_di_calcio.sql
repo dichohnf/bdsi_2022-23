@@ -1163,16 +1163,6 @@ CALL inserimento_statistiche ('P-13', 48, 1, 0, 0, 0);
 CALL inserimento_statistiche ('P-13', 0, 1, 0, 0, 0);
 CALL inserimento_statistiche ('P-14', 37, 1, 0, 0, 0);
 
-# /*
-#  * Vista ausiliaria che mostra i gol fatti e i gol subiti di una squadra
-#  * in una partita specificata dall'insieme e dalla giornata.
-#  */
-# CREATE VIEW gol_squadra_giornata
-# (insieme_squadre, giornata, numero_giornata, squadra, gol_fatti, gol_subiti) AS
-# SELECT PT.insieme, PT.giornata, PT.numero_giornata, PT.squadra_casa, PG.gol_casa AS gol_fatti, PG.gol_ospite AS gol_subiti FROM partite_torneo PT, Partita_giocata PG WHERE PT.partita = PG.partita
-# UNION
-# SELECT PT.insieme, PT.giornata, PT.numero_giornata, PT.squadra_ospite, PG.gol_ospite AS gol_fatti, PG.gol_casa AS gol_subiti FROM partite_torneo PT, Partita_giocata PG WHERE PT.partita = PG.partita;
-
 /*
  * La successiva vista mostra la classifica nel formato 
  * (insieme_squadre, squadra, giornata, numero partite giocate, punti, vittorie, pareggi, sconfitte, gol fatti, gol subiti, differenza reti)
@@ -1228,6 +1218,64 @@ FROM classifica_punti_giornata CPG WHERE numero_partite_giocate = (SELECT MAX(PG
         VALUES (NULL, insieme_, numero_giornate_aggiunte);
 	END WHILE;
  END $$
+
+/*
+ * La successiva vista mostra le prossime partite da giocare per ogni inseme di squadre
+ * dove risultano devinite delle istanze in Partite. Qualora siano definite giornate
+ * per una fase ma in queste non sono ancora state predisposte partite allora
+ * queste non saranno prese in considerazione.
+ */
+ DELIMITER ;
+CREATE VIEW prossime_partite
+(insieme_squadre, giornata, partita, giorno, ora, campo, squadra_casa, squadra_ospite) AS
+SELECT insieme_squadre, giornata, partita, giorno, ora, campo, squadra_casa, squadra_ospite FROM
+	(SELECT insieme AS insieme_squadre, giornata, partita FROM partite_torneo 
+    WHERE partita NOT IN (SELECT partita FROM Partita_giocata)
+    AND numero_giornata = (SELECT MIN(numero) FROM Giornata 
+        WHERE codice IN (SELECT giornata FROM Partita)
+        AND codice NOT IN (SELECT giornata FROM partite_giocate_torneo))) PT
+    NATURAL JOIN
+    (SELECT codice AS partita, giorno, ora, campo, squadra_casa, squadra_ospite FROM Partita) P;
+
+/*
+ * La successiva vista mostra, gli squalificati nella prossima partita.
+ * Il risparmio di operazioni è immediatamente visibile data la presenza
+ * della tabella Espulsione.
+ */
+CREATE VIEW squalificati_prossima_partita
+(insieme_squadre, giornata, tessera, nome, cognome, data_nascita) AS
+SELECT insieme_squadre, giornata, tessera, nome, cognome, data_nascita FROM
+	(SELECT G.insieme_squadre, E.giornata, E.giocatore AS tessera FROM Giornata G, Espulsione E WHERE E.giornata IN (SELECT PP.giornata FROM prossime_partite PP WHERE PP.insieme_squadre = G.insieme_squadre) AND G.codice = E.giornata) GE
+	NATURAL JOIN
+	(SELECT tessera, nome, cognome, data AS data_nascita FROM Giocatore) G; 
+    
+/*
+ * La prossima vista occorre per elencare la somma delle statistiche
+ * di ogni giocatore divise per insieme di squadre.
+ * Attraverso l'utilizzo di questa vista risulta immediata la generazione
+ * di viste, procedure o funzioni che restituiscano i giocatori che hanno segnato
+ * più gol in un dato insieme, quelli che hanno eseguito più assist oppure
+ * quelli che hanno preso piu cartellini, tutte operazioni frequentemente
+ * richieste per contesti simili a quello proposto.
+ */
+CREATE VIEW somma_statistiche_giocatore
+(insieme_squadre, squadra, tessera, gol, assist, ammonizioni, espulsione_giornate) AS
+SELECT R.insieme_squadre, R.squadra, R.giocatore, SUM(S.gol), SUM(S.assist), SUM(S.ammonizioni), SUM(S.espulsione_giornate) FROM Rosa R, Statistiche S
+	WHERE R.giocatore = S.giocatore
+    AND S.partita_giocata IN (SELECT partita FROM partite_torneo WHERE insieme = R.insieme_squadre)
+    GROUP BY insieme_squadre,squadra,giocatore;
+	
+SELECT * FROM somma_statistiche_giocatore;
+/*
+ * La prossima vista mostra i giocatori, per ogni insieme, che hanno segnato più gol
+ * in tutte le partite giocate inserite.
+ */
+CREATE VIEW giocatori_piu_gol_fatti
+(insieme_squadre, squadra, tessera, nome, cognome, data_nascita) AS
+SELECT insieme_squadre, squadra, tessera, nome, cognome, data
+	(SELECT insieme_squadre, squadra, giocatore AS tessera FROM Rosa)
+	NATURAL JOIN
+	(SELECT tessera, nome, cognome, data FROM Giocatore WHERE tessera = (SELECT giocatore FROM Statistiche WHERE SUM(gol) = ));
 
 /*
  * SEZIONE DEDICATA ALLE INTERROGAZIONI
