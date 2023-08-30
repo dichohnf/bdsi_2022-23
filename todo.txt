@@ -1,12 +1,6 @@
 Parte Implementazione MySQL: definire e descrivere procedure, trigger ecc
 		
-INTERROGAZIONI:	- trovare i numeri 10 di ogni squadra
-		- giocatori non assegnati a nessuna squadra
-		- giocatori non partecipanti a nessun torneo al momento attivo
-		- squadre non iscritte a nessun torneo
-		- ricerca giocatore per nome e mostra iscrizioni a squadre
-		
-ESEMPI DI FUNZIONAMENTO PER OGNI PROCEDURA/VISTA/TRIGGER/FUNCTION
+RILEGGI TUTTO CODICE
 
 RICHIESTA!
 Un progetto di gruppo da consegnare tramite la piattaforma Moodle in un archivio .zip o .rar. Il progetto consiste nella realizzazione di una base di dati a partire dalla fase di progettazione concettuale, cui dovrà seguire la fase di progettazione logica e quindi di realizzazione in MySQL. Il contesto della basi di dati è a scelta. I gruppi dovranno redigere una relazione in pdf (massimo 15 pagine) con la descrizione delle fasi di progettazione della basi di dati e uno script sql con la sua realizzazione in MySQL, organizzato secondo i template disponibili sul sito del corso. Lo script dovrà prevedere una parte di istruzioni DDL per la creazione e il popolamento della base di dati, con vincoli di integrità, e una parte di istruzioni DML per l'interrogazione della base di dati tramite istruzioni select e l'uso di procedure e funzioni. Dovranno anche essere utilizzate viste e trigger per mostrare la gestione di ulteriori vincoli sulla base di dati. Il progetto sarà valutato tenendo conto della forma e dei contenuti della relazione nonché degli aspetti DDL e DML dello script e peserà per 3 cfu sulla valutazione finale. Il progetto deve essere consegnato prima dell'orale, anche in un appello precedente a quello in cui viene fatto l'esame orale e quando superato vale per tutto l'anno accademico. 
@@ -64,3 +58,10 @@ PROCEDURES: 	V - inserimento statistica giocatore (lancia warning in caso di som
 		V - procedura che inserisce le giornate necessarie nella tabella giornate una volta definito il raggruppamento di un insieme di squadre
 		
 FUNCTIONS:	V - campo casa == campo di gioco 
+
+ESEMPI DI FUNZIONAMENTO PER OGNI PROCEDURA/VISTA/TRIGGER/FUNCTION
+
+INTERROGAZIONI:	V - Trovare nome e cognome di tutti i giocatori aventi numero 10 nella squadra con la quale partecipano ad una fase e che hanno segnato un gol in almeno 2 partite distinte nella fase
+		V - giocatori non assegnati a nessuna squadra che attualmente partecipa ad un torneo in corso
+		V - squadre con maglia colore bianco
+

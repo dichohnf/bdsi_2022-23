@@ -1,10 +1,10 @@
 "Codice","Nome","Tipologia di calcio","Genere","Colori sociali","Campo di casa"
 ,,,,,
 "S-0","FC Disney",7,"N","Blu Bianco","C-9"
-"S-1","Dreamworkers",7,"N","Verde Marrone","C-8"
+"S-1","Dreamworkers",7,"N","Verde Marrone","C-4"
 "S-2","Popolo di polo",7,"N","Verde Bianco","C-2"
 "S-3","The Simpsons",7,"N","Giallo","C-6"
 "S-4","Foundation and Robots",7,"N","Grigio Blu","C-7"
 "S-5","The Hitchhikers",7,"N","Blu Rosso","C-4"
 "S-6","TM5 Looney Tunes",7,"N","Viola Giallo","C-3"
-"S-7","Ovosodo",7,"N",NULL,"C-0"
+"S-7","Ovosodo",7,"N","NULL","C-0"
