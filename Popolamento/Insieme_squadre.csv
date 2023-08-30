@@ -1,6 +1,6 @@
-fase, nome
-
-F-0,A
-F-0,B
-F-1,NULL
-F-2,NULL
+"fase"," nome"
+,
+"F-0","A"
+"F-0","B"
+"F-1",0
+"F-2",0
