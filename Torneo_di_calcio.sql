@@ -520,11 +520,6 @@ BEGIN
 	DECLARE genere_squadra 		ENUM('M','F','N');
     DECLARE genere_torneo 		ENUM('M','F','N');
     DECLARE errmsg				VARCHAR(127);
-    DECLARE warnmsg				VARCHAR(127);
-    DECLARE giocatore_check		VARCHAR(8);
-    DECLARE giocatore_cursor	CURSOR FOR 
-		SELECT giocatore FROM Rosa WHERE squadra = NEW.squadra;
-	DECLARE EXIT HANDLER FOR NOT FOUND BEGIN END;
     
     -- Controllo genere concordante tra Squadra e Torneo
 	SELECT genere INTO genere_squadra FROM Squadra WHERE codice = NEW.squadra;
@@ -540,18 +535,6 @@ BEGIN
 			(SELECT I.fase FROM Insieme_squadre I WHERE I.codice = NEW.insieme_squadre)))
     THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Squadra già partecipante alla fase.', MYSQL_ERRNO='5004';
     END IF;
-    
-    -- Controllo che le squadre abbiano tutti giocatori differenti
-    OPEN giocatore_cursor;
-    check_giocatore_gia_iscritto: LOOP -- leave sottointesa: uscita con la exit dell'handler al termine dei fetch del cursore
-		FETCH giocatore_cursor INTO giocatore_check;
-        IF (SELECT COUNT(giocatore) FROM (SELECT R.giocatore FROM Rosa R WHERE R.giocatore = giocatore_check AND R.insieme_squadre = NEW.insieme_squadre) giocatore_times)  <> 1
-		THEN
-			SET errmsg = CONCAT("Giocatore già presente nell'insieme di squadre. Il giocatore ", giocatore_check, " è già presente nel'insieme ", NEW.insieme_squadre);
-			SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO = '5008';
-            LEAVE check_giocatore_gia_iscritto;
-        END IF;
-	END LOOP;
 END $$
 
 CREATE TRIGGER TR_UPD_Raggruppamento BEFORE UPDATE ON Raggruppamento
@@ -563,7 +546,9 @@ BEGIN
     DECLARE errmsg				VARCHAR(127);
 	DECLARE giocatore_check		VARCHAR(8);
     DECLARE giocatore_cursor	CURSOR FOR 
-		SELECT giocatore FROM Rosa WHERE squadra = NEW.squadra;
+		SELECT giocatore FROM Rosa 
+        WHERE insieme_squadre = NEW.insieme_squadre 
+        AND squadra = NEW.squadra;
 	DECLARE EXIT HANDLER FOR NOT FOUND BEGIN END;
     
     -- Controllo genere concordante tra Squadra e Torneo
@@ -1152,25 +1137,13 @@ BEGIN
 END $$
 
 /*
- * Vengono eseguiti nel seguito 5 inserimenti attraverso la procedura
- * inserimenti_statistiche. I primi 2 inserimenti segnalano uno warning,
- * gli altri invece vengono inseriti senza segnalazioni.
- */
-DELIMITER ;
-CALL inserimento_statistiche ('P-13', 44, 2, 1, 0, 0);
-CALL inserimento_statistiche ('P-13', 46, 0, 1, 0, 0);
-CALL inserimento_statistiche ('P-13', 48, 1, 0, 0, 0);
-CALL inserimento_statistiche ('P-13', 0, 1, 0, 0, 0);
-CALL inserimento_statistiche ('P-14', 37, 1, 0, 0, 0);
-
-/*
  * La successiva vista mostra la classifica nel formato 
  * (insieme_squadre, squadra, giornata, numero partite giocate, punti, vittorie, pareggi, sconfitte, gol fatti, gol subiti, differenza reti)
  * dove i punti sono calcolati attraverso lo schema: 1 vittoria +3, 1 pareggio +1.
  * La vista è pensata per gli insiemi di squadre con modalità a gironi. Nel caso di 
  * insiemi ad eliminazione la funzione produce un risultato che non è significativo.
  * Per ottenere la classifica di un girone aggiornata all'ultima partita giocata può essere utilizzata 
- la seguente vista, ma specifica per lo scopo è la vista classifca_punti_aggiornata mostrata nel seguito.
+ * la seguente vista, ma specifica per lo scopo è la vista classifca_punti_aggiornata mostrata nel seguito.
  */
 CREATE VIEW	classifica_punti_giornata
 (insieme_squadre, squadra, giornata, numero_partite_giocate, punti, vittorie, pareggi, sconfitte) AS
@@ -1180,48 +1153,14 @@ FROM Classifica GROUP BY insieme_squadre, squadra, giornata;
 CREATE VIEW classifica_punti_aggiornata 
 (insieme_squadre, squadra, giornata, numero_partite_giocate, punti, vittorie, pareggi, sconfitte) AS
 SELECT CPG.insieme_squadre, squadra, giornata, numero_partite_giocate, punti, vittorie, pareggi, sconfitte
-FROM classifica_punti_giornata CPG WHERE numero_partite_giocate = (SELECT MAX(PGT.numero_giornata) FROM partite_giocate_torneo PGT WHERE PGT.insieme = CPG.insieme_squadre);
-
-/*
- * La successiva procedura esegue l'inserimento in Giornata di un numero
- * di istanze necessarie affinché l'insieme di squadre specificato possa essere 
- * saturo, ovvero il numero di giornate minime necessarie perchè un insieme possa 
- * non aver bisogno di altre giornate. Occorre per evitare al gestore del database 
- * numerevoli inserimenti manuali, dato che il numero di giornate è definito dal 
- * numero di squadre nell'insieme di squadre associato. Occorre quindi aver 
- * precedentemente completato il ragruppamento dell'insieme delle squadre in un girone.
- */
- DELIMITER $$
- CREATE PROCEDURE riempimento_giornate (IN insieme_ VARCHAR(7))
- BEGIN
-	DECLARE num_squadre				SMALLINT UNSIGNED;
-    DECLARE modalita_fase				ENUM('Girone', 'Eliminazione');
-    DECLARE num_scontri				TINYINT UNSIGNED;
-	DECLARE num_giornate_totale		TINYINT UNSIGNED;
-    DECLARE num_giornate_aggiunte	TINYINT UNSIGNED;
-    
-    SELECT COUNT(squadra) INTO num_squadre FROM Raggruppamento WHERE insieme_squadre = insieme_;
-    SELECT scontri, modalita INTO num_scontri, modalita_fase FROM Fase WHERE codice = (SELECT fase FROM Insieme WHERE codice = insieme_);
-    
-    -- I vincoli non sono specificati nella relazione, vengono mostrati due valori tipici
-    -- nei tornei calcistici per dimostrare la tipologia di procedura.
-    IF modalita_fase = 'Girone'
-    THEN SET num_giornate_totale = (num_squadre -1) * num_scontri;
-    ELSE SET num_giornate_totale = FLOOR(LOG2(num_squadre)) * num_scontri;
-    END IF;
-    SET num_giornate_aggiunte = 0;
-    
-    WHILE num_giornate_aggiunte < num_giornate_totale
-    DO
-		SET num_giornate_aggiunte = num_giornate_aggiunte + 1;
-        INSERT INTO Giornata (codice, insieme, numero)
-        VALUES (NULL, insieme_, numero_giornate_aggiunte);
-	END WHILE;
- END $$
+FROM classifica_punti_giornata CPG
+WHERE numero_partite_giocate = 
+	(SELECT MAX(PGT.numero_giornata) FROM partite_giocate_torneo PGT 
+    WHERE PGT.insieme = CPG.insieme_squadre);
 
 /*
  * La successiva vista mostra le prossime partite da giocare per ogni inseme di squadre
- * dove risultano devinite delle istanze in Partite. Qualora siano definite giornate
+ * dove risultano definite delle istanze in Partite. Qualora siano definite giornate
  * per una fase ma in queste non sono ancora state predisposte partite allora
  * queste non saranno prese in considerazione.
  */
@@ -1264,23 +1203,156 @@ SELECT R.insieme_squadre, R.squadra, R.giocatore, SUM(S.gol), SUM(S.assist), SUM
 	WHERE R.giocatore = S.giocatore
     AND S.partita_giocata IN (SELECT partita FROM partite_torneo WHERE insieme = R.insieme_squadre)
     GROUP BY insieme_squadre,squadra,giocatore;
-	
-SELECT * FROM somma_statistiche_giocatore;
-/*
- * La prossima vista mostra i giocatori, per ogni insieme, che hanno segnato più gol
- * in tutte le partite giocate inserite.
- */
-CREATE VIEW giocatori_piu_gol_fatti
-(insieme_squadre, squadra, tessera, nome, cognome, data_nascita) AS
-SELECT insieme_squadre, squadra, tessera, nome, cognome, data
-	(SELECT insieme_squadre, squadra, giocatore AS tessera FROM Rosa)
-	NATURAL JOIN
-	(SELECT tessera, nome, cognome, data FROM Giocatore WHERE tessera = (SELECT giocatore FROM Statistiche WHERE SUM(gol) = ));
 
+/*
+ * La successiva procedura esegue l'inserimento in Giornata di un numero
+ * di istanze necessarie affinché l'insieme di squadre specificato possa essere 
+ * saturo, ovvero il numero di giornate minime necessarie perchè un insieme possa 
+ * non aver bisogno di altre giornate. Occorre per evitare al gestore del database 
+ * numerevoli inserimenti manuali, dato che il numero di giornate è definito dal 
+ * numero di squadre nell'insieme di squadre associato. Occorre quindi aver 
+ * precedentemente completato il ragruppamento dell'insieme delle squadre in un girone.
+ */
+ DELIMITER $$
+ CREATE PROCEDURE riempimento_giornate (IN insieme_ VARCHAR(7))
+ BEGIN
+	DECLARE num_squadre				SMALLINT UNSIGNED;
+    DECLARE modalita_fase				ENUM('Girone', 'Eliminazione');
+    DECLARE num_scontri				TINYINT UNSIGNED;
+	DECLARE num_giornate_totale		TINYINT UNSIGNED;
+    DECLARE num_giornate_aggiunte	TINYINT UNSIGNED;
+    
+    SELECT COUNT(squadra) INTO num_squadre FROM Raggruppamento WHERE insieme_squadre = insieme_;
+    SELECT scontri, modalita INTO num_scontri, modalita_fase FROM Fase WHERE codice = (SELECT fase FROM Insieme WHERE codice = insieme_);
+    
+    -- I vincoli non sono specificati nella relazione, vengono mostrati due valori tipici
+    -- nei tornei calcistici per dimostrare la tipologia di procedura.
+    IF modalita_fase = 'Girone'
+    THEN SET num_giornate_totale = (num_squadre -1) * num_scontri;
+    ELSE SET num_giornate_totale = FLOOR(LOG2(num_squadre)) * num_scontri;
+    END IF;
+    SET num_giornate_aggiunte = 0;
+    
+    WHILE num_giornate_aggiunte < num_giornate_totale
+    DO
+		SET num_giornate_aggiunte = num_giornate_aggiunte + 1;
+        INSERT INTO Giornata (codice, insieme, numero)
+        VALUES (NULL, insieme_, numero_giornate_aggiunte);
+	END WHILE;
+ END $$
+ 
+/*
+ * La successiva procedura inserisce in Raggruppamento delle istanze
+ * affichè sia generato un nuovo insieme di squadre per la fase successiva
+ * a quella specificata, comprendente le squadre tra le posizioni in classifica
+ * degli insieme di squadre indicate come parametri.
+ * La procedura è progettata per creare fasi ad eliminazione a partire da
+ * gironi, ma produce un risultato utilizzabile anche se si vuole inserire
+ * le squadre in un insieme a giorni.
+ * Il nome di default inserito per gli insieme generati dalla procedura
+ * è NULL.
+ * Le posizioni specificate sono ambedue comprese; in caso si desideri
+ * selezionare un unica squadra è sufficiente ripeterla due volte.
+ * posizione_prima si riferisce alla posizione più vicina alla prima
+ * posizione in classifica, ovvero un intero minore o uguale a 
+ * posizione_ultima.
+ * La procedura utilizza la classifca aggiornata per definire
+ * l'insieme, quindi considera la fase apecificata conclusa.
+ */
+CREATE PROCEDURE ragguppamento_fase_successiva (IN fase_derivazione VARCHAR(6), IN posizione_prima TINYINT, IN posizione_ultima TINYINT, IN fase_inserimenti VARCHAR(6))
+BEGIN
+	DECLARE insieme_generato	VARCHAR(7);
+	DECLARE limit_				TINYINT;
+	DECLARE offset_ 			TINYINT;
+	DECLARE insieme_prelevato	VARCHAR(7);
+	DECLARE squadra_da_inserire	VARCHAR(8);
+	DECLARE insieme_cursor 		CURSOR FOR
+		SELECT I.codice FROM Insieme_squadre I WHERE I.fase = fase_derivazione;
+	DECLARE EXIT HANDLER FOR NOT FOUND BEGIN END;
+
+	-- Generazione insieme
+	INSERT INTO Insieme_squadre (fase, nome)
+	VALUES (fase_inserimenti, NULL);
+	SELECT codice INTO insieme_generato FROM Insieme_squadre 
+	WHERE fase = fase_inserimenti AND nome IS NULL;
+
+	SET limit_ = posizione_ultima - posizione_prima +1;
+	SET offset_ = posizione_prima -1;
+	OPEN insieme_cursor;
+	LOOP
+		FETCH insieme_cursor INTO squadra_da_inserire;
+		SELECT squadra INTO squadra_da_inserire FROM classifica_punti_aggiornata 
+			WHERE insieme_squadre = insieme_prelevato
+			ORDER BY punti DESC 
+			LIMIT limit_ OFFSET offset_;
+		INSERT INTO Raggruppamento (insieme_squadre, squadra)
+		VALUES (insieme_generato, squadra_da_inserire);
+	END LOOP;
+END $$
+
+/*
+ * La successiva funzione controlla, per una partita indicata
+ * se il campo assegnato risulta essere il campo di casa
+ * della squadra partecipante alla partita passata come parametro.
+ * La funzione restituisce un valore booleano.
+ */
+CREATE FUNCTION is_campo_casa (partita_ VARCHAR(8), squadra_ VARCHAR(8))
+RETURNS BOOLEAN
+LANGUAGE SQL
+NOT DETERMINISTIC
+READS SQL DATA
+BEGIN
+	DECLARE errmsg VARCHAR(127);
+	IF squadra_ NOT IN 
+		((SELECT squadra_casa AS squadra FROM Partita WHERE codice = partita_)
+        UNION
+        (SELECT squadra_ospite AS squadra FROM Partita WHERE codice = partita_))
+    THEN
+		SET errmsg = CONCAT("La squadra ", squadra_, " non partecipa alla partita ", partita_);
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = errmsg, MYSQL_ERRNO='5013';
+    END IF;
+    RETURN (SELECT campo FROM Squadra WHERE codice = squadra_) = (SELECT campo FROM Partita WHERE codice = partita_);
+END $$
+
+INSERT INTO Fase (torneo, nome, modalita, scontri, indice)
+VALUES ('T-0', "lscsdc", 'Eliminazione', 2, 3)$$
+  
+CALL ragguppamento_fase_successiva('F-0', 1, 2, 'F-3')$$
+ 
+SELECT is_campo_casa('P-0', 'S-2')$$
+ 
+/*
+ * SEZIONE DEDICATA AGLI ESEMPI DI FUNZIONAMENTO
+ */
+ 
+/*
+ * La successiva sezione mostra, per tutte le procedure, funzioni e viste
+ * mostarte nella precedente sezione un esempio di funzionamento.
+ */
+DELIMITER ;
+
+/*
+ * Vengono eseguiti nel seguito 5 inserimenti attraverso la procedura
+ * inserimenti_statistiche. I primi 2 inserimenti segnalano uno warning,
+ * gli altri invece vengono inseriti senza segnalazioni.
+ */
+DELIMITER ;
+CALL inserimento_statistiche ('P-13', 44, 2, 1, 0, 0);
+CALL inserimento_statistiche ('P-13', 46, 0, 1, 0, 0);
+CALL inserimento_statistiche ('P-13', 48, 1, 0, 0, 0);
+CALL inserimento_statistiche ('P-13', 0, 1, 0, 0, 0);
+CALL inserimento_statistiche ('P-14', 37, 1, 0, 0, 0);
+
+/*
+ * Si mostra nel seguito un possibile utilizzo della vista classifica_punti_giornata
+ * nella quale si mostra la classifica punti dell'insieme specificato
+ * alla giornata specificata, senza operare altre selezioni;
+ */
+ SELECT * FROM classifica_punti_giornata WHERE insieme_squadre = 'I-0' AND numero_partite_giocate = 2;
+  
 /*
  * SEZIONE DEDICATA ALLE INTERROGAZIONI
  */
- 
 # SELECT * FROM Torneo ORDER BY CAST(SUBSTRING(codice FROM 3) AS DECIMAL);
 # SELECT * FROM Giocatore;
 # SELECT * FROM Fase;
