@@ -63,5 +63,5 @@ INTERROGAZIONI:	V - Trovare nome e cognome di tutti i giocatori aventi numero 10
 		V - giocatori non assegnati a nessuna squadra che attualmente partecipa ad un torneo in corso
 		V - squadre con maglia colore bianco
 
-
 RILEGGI TUTTO CODICE
+
