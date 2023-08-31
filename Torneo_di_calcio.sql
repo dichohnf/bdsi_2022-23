@@ -2,8 +2,11 @@ DROP DATABASE IF EXISTS `bdsi_prog2023`;
 CREATE DATABASE IF NOT EXISTS `bdsi_prog2023`;
 
 USE bdsi_prog2023;
-
 SET GLOBAL local_infile = 'ON';
+
+############################################################################
+################          	CREAZIONE TABELLE	            ################
+############################################################################
 
 CREATE TABLE IF NOT EXISTS Torneo(
     codice		VARCHAR(5)				-- T-xxx
@@ -138,13 +141,9 @@ CREATE TABLE IF NOT EXISTS Rosa(
     
     PRIMARY KEY(insieme_squadre, squadra, giocatore),
 	UNIQUE (insieme_squadre, squadra, numero_maglia),
-	FOREIGN KEY (insieme_squadre)
-		REFERENCES Insieme_squadre(codice)
-        ON DELETE NO ACTION
-        ON UPDATE CASCADE,
-    FOREIGN KEY (squadra)
-		REFERENCES Squadra(codice)
-        ON DELETE NO ACTION
+	FOREIGN KEY (insieme_squadre, squadra)
+		REFERENCES Raggruppamento(insieme_squadre, squadra)
+        ON DELETE CASCADE
         ON UPDATE CASCADE,
 	FOREIGN KEY (giocatore)
 		REFERENCES Giocatore(tessera)
@@ -240,9 +239,11 @@ CREATE TABLE IF NOT EXISTS Espulsione (
         ON UPDATE CASCADE
 );
 
-/*
- * SEZIONE DEDICATA ALLE PROCEDURE, ALLE FUNZIONI E ALLE VISTE AUSILIARIE
- */
+
+############################################################################
+################      SEZIONE DEDICATA ALLE PROCEDURE			############
+################ 	ALLE FUNZIONI E ALLE VISTE AUSILIARIE       ############
+############################################################################
  
 /*
  * La successiva vista rappresenta l'inisieme di tutti i tesseramenti.
@@ -338,8 +339,12 @@ BEGIN
 	END IF;
 END $$
 
+
+############################################################################
+################      SEZIONE DEDICATA AI TRIGGER				############
+############################################################################
+
 /*
- * SEZIONE DEDICATA AI TRIGGER
  * La sezione successiva definisce i trigger per il controllo 
  * dei vincoli non esprimibili nella creazione delle tabelle.
  * Per ogni tabella è stato preferito definire massimo due trigger, uno per 
@@ -1066,9 +1071,9 @@ BEGIN
 END $$
 
 DELIMITER ;
-/*
- * SEZIONE DEDICATA AGLI INSERIMENTI
- */
+############################################################################
+################      SEZIONE DEDICATA AGLI INSERIMENTI			############
+############################################################################
 
 -- Inserimento manuale da script (tabella Torneo)
 INSERT INTO Torneo (nome, tipologia, genere, edizione)
@@ -1164,9 +1169,10 @@ OPTIONALLY ENCLOSED BY '"'
 IGNORE 2 LINES
 (partita_giocata, giocatore, gol, assist, ammonizioni, espulsione_giornate); 
 
-/*
- * SEZIONE PROCEDURE, FUNZIONI E VISTE PER GLI UTENTI
- */
+############################################################################
+################      SEZIONE DEDICATA ALLE PROCEDURE,			############
+################	  FUNZIONI E VISTE PER GLI UTENTI 			############
+############################################################################
 
 /*
  * La procedura successiva occorre per l'inserimento di Statistiche.
@@ -1449,9 +1455,9 @@ BEGIN
         WHERE codice = partita_);
 END $$
 
-/*
- * SEZIONE DEDICATA AGLI ESEMPI DI FUNZIONAMENTO
- */
+############################################################################
+########      	SEZIONE DEDICATA AGLI ESEMPI DI FUNZIONAMENTO 		########
+############################################################################
  
 /*
  * La successiva sezione mostra, per tutte le procedure, funzioni e viste
@@ -1540,9 +1546,9 @@ DELIMITER ;
 # SELECT is_campo_casa('P-0', 'S-1'); -- Vero
 # SELECT is_campo_casa('P-0', 'S-2'); -- Errore
 
-/*
- * SEZIONE DEDICATA ALLE INTERROGAZIONI
- */
+############################################################################
+#############      SEZIONE DEDICATA ALLE INTERROGAZIONI			############
+############################################################################
  
 /*
  * Nella successiva sezione si mostrano alcune query che potrebbero 
