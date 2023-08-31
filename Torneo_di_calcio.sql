@@ -1255,7 +1255,6 @@ WHERE numero_partite_giocate =
  * per una fase ma in queste non sono ancora state predisposte partite allora
  * queste non saranno prese in considerazione.
  */
- DELIMITER ;
 CREATE VIEW prossime_partite
 (insieme_squadre, giornata, partita, giorno, ora, campo, squadra_casa, squadra_ospite) AS
 SELECT insieme, giornata, partita, giorno, ora, campo, squadra_casa, squadra_ospite
@@ -1294,7 +1293,7 @@ FROM
  * La prossima vista occorre per elencare la somma delle statistiche
  * di ogni giocatore divise per insieme di squadre.
  * Attraverso l'utilizzo di questa vista risulta immediata la generazione
- * di viste, procedure o funzioni che restituiscano i giocatori che hanno segnato
+ * di viste, procedure o funzioni che restituiscano giocatori che hanno segnato
  * più gol in un dato insieme, quelli che hanno eseguito più assist oppure
  * quelli che hanno preso piu cartellini, tutte operazioni frequentemente
  * richieste per contesti simili a quello proposto.
